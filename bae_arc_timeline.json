@@ -1,0 +1,94 @@
+{
+    "clips": [
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 1.MP4",
+            "startTime": 0,
+            "duration": 15.0,
+            "filter": "Elite Zoom"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 2.MP4",
+            "startTime": 0,
+            "duration": 15.0,
+            "filter": "Elite Zoom"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 3.MP4",
+            "startTime": 0,
+            "duration": 85.0,
+            "filter": "Elite Angle (Left)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 4.MP4",
+            "startTime": 0,
+            "duration": 85.0,
+            "filter": "Elite Angle (Left)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 5.MP4",
+            "startTime": 0,
+            "duration": 39.0,
+            "filter": "Elite Angle (Right)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 6.MP4",
+            "startTime": 0,
+            "duration": 39.0,
+            "filter": "Elite Motion (Pan)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 7.MP4",
+            "startTime": 0,
+            "duration": 37.0,
+            "filter": "Elite Zoom"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 8.MP4",
+            "startTime": 0,
+            "duration": 37.0,
+            "filter": "Elite Angle (Right)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 9.MP4",
+            "startTime": 0,
+            "duration": 34.0,
+            "filter": "Elite Zoom"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 10.MP4",
+            "startTime": 0,
+            "duration": 34.0,
+            "filter": "Elite Motion (Pan)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 11.MP4",
+            "startTime": 0,
+            "duration": 49.0,
+            "filter": "Elite Angle (Left)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 12.MP4",
+            "startTime": 0,
+            "duration": 49.0,
+            "filter": "Elite Angle (Right)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 13.MP4",
+            "startTime": 0,
+            "duration": 154.0,
+            "filter": "Elite Zoom"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/Bae - 14.MP4",
+            "startTime": 0,
+            "duration": 124.0,
+            "filter": "Elite Angle (Right)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Bae/IMG_3841.MP4",
+            "startTime": 0,
+            "duration": 157.0,
+            "filter": "Elite Zoom"
+        }
+    ]
+}

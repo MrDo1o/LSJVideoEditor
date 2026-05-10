@@ -1,0 +1,52 @@
+{
+    "clips": [
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1oKP.mov",
+            "startTime": 1374.39,
+            "duration": 479,
+            "filter": "Elite Zoom"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1oKP.mov",
+            "startTime": 456.53,
+            "duration": 476,
+            "filter": "Elite Angle (Right)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1oKP.mov",
+            "startTime": 380.04,
+            "duration": 416,
+            "filter": "Elite Motion (Pan)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1oKP.mov",
+            "startTime": 214.59,
+            "duration": 483,
+            "filter": "Elite Motion (Pan)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1oKP.mov",
+            "startTime": 955.89,
+            "duration": 555,
+            "filter": "Elite Zoom"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1oKP.mov",
+            "startTime": 202.43,
+            "duration": 579,
+            "filter": "Elite Angle (Left)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1oKP.mov",
+            "startTime": 232.06,
+            "duration": 413,
+            "filter": "Elite Zoom"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1oKP.mov",
+            "startTime": 527.93,
+            "duration": 482,
+            "filter": "Elite Angle (Right)"
+        }
+    ]
+}

@@ -1,0 +1,98 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../build/Auth.swiftmodule"
+		},
+		{
+			"path": "../build/Clocks.swiftmodule"
+		},
+		{
+			"path": "../build/ConcurrencyExtras.swiftmodule"
+		},
+		{
+			"path": "../build/Crypto.swiftmodule"
+		},
+		{
+			"path": "../build/DerivedData"
+		},
+		{
+			"path": "../build/EditorWidget.appex"
+		},
+		{
+			"path": "../build/EditorWidget.swiftmodule"
+		},
+		{
+			"path": "../build/Functions.swiftmodule"
+		},
+		{
+			"path": "../build/Helpers.swiftmodule"
+		},
+		{
+			"path": "../build/Helpers.swiftmodule/Project"
+		},
+		{
+			"path": "../build/HTTPTypes.swiftmodule"
+		},
+		{
+			"path": "../build/IssueReporting.swiftmodule"
+		},
+		{
+			"path": "../build/IssueReportingPackageSupport.swiftmodule"
+		},
+		{
+			"path": "../build/LSJVideoEditor.app"
+		},
+		{
+			"path": "../build/LSJVideoEditor.swiftmodule"
+		},
+		{
+			"path": "../build/LSJVideoEditor.xcarchive"
+		},
+		{
+			"path": "../build/PackageFrameworks"
+		},
+		{
+			"path": "../build/PostgREST.swiftmodule"
+		},
+		{
+			"path": "../build/Realtime.swiftmodule"
+		},
+		{
+			"path": "../build/Storage.swiftmodule"
+		},
+		{
+			"path": "../build/Supabase.swiftmodule"
+		},
+		{
+			"path": "../build/swift-crypto_Crypto.bundle"
+		},
+		{
+			"path": "../build/XCTestDynamicOverlay.swiftmodule"
+		},
+		{
+			"path": "../build/LSJVideoEditor.app/Contents/_CodeSignature"
+		},
+		{
+			"path": "../build/LSJVideoEditor.app/Contents/MacOS"
+		},
+		{
+			"path": "../build/LSJVideoEditor.app/Contents/PlugIns/EditorWidget.appex/Contents"
+		},
+		{
+			"path": "../build/LSJVideoEditor.app/Contents/PlugIns/EditorWidget.appex/Contents/_CodeSignature"
+		},
+		{
+			"path": "../build/LSJVideoEditor.app/Contents/PlugIns/EditorWidget.appex/Contents/MacOS"
+		},
+		{
+			"path": "../build/LSJVideoEditor.app/Contents/Resources"
+		},
+		{
+			"path": "../build"
+		}
+	],
+	"settings": {}
+}

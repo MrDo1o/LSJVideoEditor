@@ -1,0 +1,1512 @@
+{
+    "models": [
+        {
+            "id": "aion-1",
+            "rebrandedName": "Aeon",
+            "originalName": "Aion",
+            "shortName": "aion",
+            "version": "1",
+            "category": "Motion",
+            "parameters": []
+        },
+        {
+            "id": "prob-4",
+            "rebrandedName": "Apex",
+            "originalName": "Proteus",
+            "shortName": "prob",
+            "version": "4",
+            "category": "Enhance",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "apf-2",
+            "rebrandedName": "Aurora",
+            "originalName": "Apollo Fast",
+            "shortName": "apf",
+            "version": "2",
+            "category": "Motion",
+            "parameters": []
+        },
+        {
+            "id": "ddv-3",
+            "rebrandedName": "Echo",
+            "originalName": "Dione - DV",
+            "shortName": "ddv",
+            "version": "3",
+            "category": "Deinterlace",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "aiob-1",
+            "rebrandedName": "Elite Aion Bottom (v1)",
+            "originalName": "Aion Bottom",
+            "shortName": "aiob",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "apo-5",
+            "rebrandedName": "Elite Apollo (v5)",
+            "originalName": "Apollo",
+            "shortName": "apo",
+            "version": "5",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "apo-6",
+            "rebrandedName": "Elite Apollo (v6)",
+            "originalName": "Apollo",
+            "shortName": "apo",
+            "version": "6",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "apo-7",
+            "rebrandedName": "Elite Apollo (v7)",
+            "originalName": "Apollo",
+            "shortName": "apo",
+            "version": "7",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "apf-1",
+            "rebrandedName": "Elite Apollo Fast (v1)",
+            "originalName": "Apollo Fast",
+            "shortName": "apf",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "aaa-9",
+            "rebrandedName": "Elite Artemis - Aliasing or Moire (v9)",
+            "originalName": "Artemis - Aliasing or Moire",
+            "shortName": "aaa",
+            "version": "9",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "ahq-10",
+            "rebrandedName": "Elite Artemis - High Quality (v10)",
+            "originalName": "Artemis - High Quality",
+            "shortName": "ahq",
+            "version": "10",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "ahq-11",
+            "rebrandedName": "Elite Artemis - High Quality (v11)",
+            "originalName": "Artemis - High Quality",
+            "shortName": "ahq",
+            "version": "11",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "alq-10",
+            "rebrandedName": "Elite Artemis - Low Quality (v10)",
+            "originalName": "Artemis - Low Quality",
+            "shortName": "alq",
+            "version": "10",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "alq-12",
+            "rebrandedName": "Elite Artemis - Low Quality (v12)",
+            "originalName": "Artemis - Low Quality",
+            "shortName": "alq",
+            "version": "12",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "alq-13",
+            "rebrandedName": "Elite Artemis - Low Quality (v13)",
+            "originalName": "Artemis - Low Quality",
+            "shortName": "alq",
+            "version": "13",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "amq-10",
+            "rebrandedName": "Elite Artemis - Medium Quality (v10)",
+            "originalName": "Artemis - Medium Quality",
+            "shortName": "amq",
+            "version": "10",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "amq-12",
+            "rebrandedName": "Elite Artemis - Medium Quality (v12)",
+            "originalName": "Artemis - Medium Quality",
+            "shortName": "amq",
+            "version": "12",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "amqs-1",
+            "rebrandedName": "Elite Artemis - Medium Quality Halo (v1)",
+            "originalName": "Artemis - Medium Quality Halo",
+            "shortName": "amqs",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "amqs-2",
+            "rebrandedName": "Elite Artemis - Medium Quality Halo (v2)",
+            "originalName": "Artemis - Medium Quality Halo",
+            "shortName": "amqs",
+            "version": "2",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "alqs-1",
+            "rebrandedName": "Elite Artemis - Strong Halo (v1)",
+            "originalName": "Artemis - Strong Halo",
+            "shortName": "alqs",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "alqs-2",
+            "rebrandedName": "Elite Artemis - Strong Halo (v2)",
+            "originalName": "Artemis - Strong Halo",
+            "shortName": "alqs",
+            "version": "2",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "cpe-1",
+            "rebrandedName": "Elite Camera Pose Estimation (v1)",
+            "originalName": "Camera Pose Estimation",
+            "shortName": "cpe",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "cpe-2",
+            "rebrandedName": "Elite Camera Pose Estimation (v2)",
+            "originalName": "Camera Pose Estimation",
+            "shortName": "cpe",
+            "version": "2",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "chr-1",
+            "rebrandedName": "Elite Chronos (v1)",
+            "originalName": "Chronos",
+            "shortName": "chr",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "chf-1",
+            "rebrandedName": "Elite Chronos Fast (v1)",
+            "originalName": "Chronos Fast",
+            "shortName": "chf",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "ifi-1",
+            "rebrandedName": "Elite Chronos Fast (v1)",
+            "originalName": "Chronos Fast",
+            "shortName": "ifi",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "chf-2",
+            "rebrandedName": "Elite Chronos Fast (v2)",
+            "originalName": "Chronos Fast",
+            "shortName": "chf",
+            "version": "2",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "ddv-1",
+            "rebrandedName": "Elite Dione - DV (v1)",
+            "originalName": "Dione - DV",
+            "shortName": "ddv",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "ddv-2",
+            "rebrandedName": "Elite Dione - DV (v2)",
+            "originalName": "Dione - DV",
+            "shortName": "ddv",
+            "version": "2",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "dtvs-1",
+            "rebrandedName": "Elite Dione - Halo (v1)",
+            "originalName": "Dione - Halo",
+            "shortName": "dtvs",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "dtv-1",
+            "rebrandedName": "Elite Dione - TV (v1)",
+            "originalName": "Dione - TV",
+            "shortName": "dtv",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "dtv-3",
+            "rebrandedName": "Elite Dione - TV (v3)",
+            "originalName": "Dione - TV",
+            "shortName": "dtv",
+            "version": "3",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "dtd-1",
+            "rebrandedName": "Elite Dione Robust (v1)",
+            "originalName": "Dione Robust",
+            "shortName": "dtd",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "dtd-3",
+            "rebrandedName": "Elite Dione Robust (v3)",
+            "originalName": "Dione Robust",
+            "shortName": "dtd",
+            "version": "3",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "dtds-1",
+            "rebrandedName": "Elite Dione Robust - Halo (v1)",
+            "originalName": "Dione Robust - Halo",
+            "shortName": "dtds",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "dtds-2",
+            "rebrandedName": "Elite Dione Robust - Halo (v2)",
+            "originalName": "Dione Robust - Halo",
+            "shortName": "dtds",
+            "version": "2",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "ref-1",
+            "rebrandedName": "Elite Full-Frame  Auto-Crop (v1)",
+            "originalName": "Full-Frame & Auto-Crop",
+            "shortName": "ref",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "iris-1",
+            "rebrandedName": "Elite Iris - Low Quality (v1)",
+            "originalName": "Iris - Low Quality",
+            "shortName": "iris",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "iris-2",
+            "rebrandedName": "Elite Iris - Medium Quality (v2)",
+            "originalName": "Iris - Medium Quality",
+            "shortName": "iris",
+            "version": "2",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "nyx-1",
+            "rebrandedName": "Elite Nyx (v1)",
+            "originalName": "Nyx",
+            "shortName": "nyx",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Nyx Recover Details",
+                    "guiName": "Nyx Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "nyx-2",
+            "rebrandedName": "Elite Nyx (v2)",
+            "originalName": "Nyx",
+            "shortName": "nyx",
+            "version": "2",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Nyx Recover Details",
+                    "guiName": "Nyx Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "prob-1",
+            "rebrandedName": "Elite Proteus (v1)",
+            "originalName": "Proteus",
+            "shortName": "prob",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "prob-2",
+            "rebrandedName": "Elite Proteus (v2)",
+            "originalName": "Proteus",
+            "shortName": "prob",
+            "version": "2",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "prob-3",
+            "rebrandedName": "Elite Proteus (v3)",
+            "originalName": "Proteus",
+            "shortName": "prob",
+            "version": "3",
+            "category": "Legacy",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "thm-1",
+            "rebrandedName": "Elite Themis (v1)",
+            "originalName": "Themis",
+            "shortName": "thm",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "nap-1",
+            "rebrandedName": "Elite nap-1 (v1)",
+            "originalName": "nap-1",
+            "shortName": "nap",
+            "version": "1",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "nap-2",
+            "rebrandedName": "Elite nap-2 (v2)",
+            "originalName": "nap-2",
+            "shortName": "nap",
+            "version": "2",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "nap-3",
+            "rebrandedName": "Elite nap-3 (v3)",
+            "originalName": "nap-3",
+            "shortName": "nap",
+            "version": "3",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "prap-3",
+            "rebrandedName": "Elite prap-3 (v3)",
+            "originalName": "prap-3",
+            "shortName": "prap",
+            "version": "3",
+            "category": "Legacy",
+            "parameters": []
+        },
+        {
+            "id": "thf-4",
+            "rebrandedName": "Fidelity",
+            "originalName": "Theia Fine Tune Fidelity",
+            "shortName": "thf",
+            "version": "4",
+            "category": "Special",
+            "parameters": []
+        },
+        {
+            "id": "chr-2",
+            "rebrandedName": "Flux",
+            "originalName": "Chronos",
+            "shortName": "chr",
+            "version": "2",
+            "category": "Motion",
+            "parameters": []
+        },
+        {
+            "id": "thd-3",
+            "rebrandedName": "Focus",
+            "originalName": "Theia Fine Tune Detail",
+            "shortName": "thd",
+            "version": "3",
+            "category": "Special",
+            "parameters": []
+        },
+        {
+            "id": "dtd-4",
+            "rebrandedName": "Grit",
+            "originalName": "Dione Robust",
+            "shortName": "dtd",
+            "version": "4",
+            "category": "Deinterlace",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "dtvs-2",
+            "rebrandedName": "Halo",
+            "originalName": "Dione - Halo",
+            "shortName": "dtvs",
+            "version": "2",
+            "category": "Deinterlace",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "apo-8",
+            "rebrandedName": "Helios",
+            "originalName": "Apollo",
+            "shortName": "apo",
+            "version": "8",
+            "category": "Motion",
+            "parameters": []
+        },
+        {
+            "id": "rhea-1",
+            "rebrandedName": "Lumina",
+            "originalName": "Rhea - Medium Quality",
+            "shortName": "rhea",
+            "version": "1",
+            "category": "Enhance",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "nyx-3",
+            "rebrandedName": "Obsidian",
+            "originalName": "Nyx",
+            "shortName": "nyx",
+            "version": "3",
+            "category": "Enhance",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Nyx Recover Details",
+                    "guiName": "Nyx Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "iris-3",
+            "rebrandedName": "Prism",
+            "originalName": "Iris - Low Quality",
+            "shortName": "iris",
+            "version": "3",
+            "category": "Enhance",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "chf-3",
+            "rebrandedName": "Pulsar",
+            "originalName": "Chronos Fast",
+            "shortName": "chf",
+            "version": "3",
+            "category": "Motion",
+            "parameters": []
+        },
+        {
+            "id": "gcg-5",
+            "rebrandedName": "Render",
+            "originalName": "Gaia - Computer Generated",
+            "shortName": "gcg",
+            "version": "5",
+            "category": "Enhance",
+            "parameters": []
+        },
+        {
+            "id": "nxf-1",
+            "rebrandedName": "Shadow",
+            "originalName": "Nyx Fast",
+            "shortName": "nxf",
+            "version": "1",
+            "category": "Enhance",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Nyx Recover Details",
+                    "guiName": "Nyx Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "hyp-1",
+            "rebrandedName": "Solstice",
+            "originalName": "Hyperion HDR",
+            "shortName": "hyp",
+            "version": "1",
+            "category": "Special",
+            "parameters": []
+        },
+        {
+            "id": "ref-2",
+            "rebrandedName": "Stabilizer",
+            "originalName": "Full-Frame & Auto-Crop",
+            "shortName": "ref",
+            "version": "2",
+            "category": "Special",
+            "parameters": []
+        },
+        {
+            "id": "dtv-4",
+            "rebrandedName": "Stellar",
+            "originalName": "Dione - TV",
+            "shortName": "dtv",
+            "version": "4",
+            "category": "Deinterlace",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "ghq-5",
+            "rebrandedName": "Terra",
+            "originalName": "Gaia - High Quality",
+            "shortName": "ghq",
+            "version": "5",
+            "category": "Enhance",
+            "parameters": []
+        },
+        {
+            "id": "rxl-1",
+            "rebrandedName": "Titan",
+            "originalName": "Rhea XL - Fine Details",
+            "shortName": "rxl",
+            "version": "1",
+            "category": "Enhance",
+            "parameters": [
+                {
+                    "default": 0,
+                    "guiName": "Add Noise",
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise"
+                }
+            ]
+        },
+        {
+            "id": "ash-1",
+            "rebrandedName": "Vanguard",
+            "originalName": "AutoShot - boundary detection",
+            "shortName": "ash",
+            "version": "1",
+            "category": "Special",
+            "parameters": []
+        },
+        {
+            "id": "amq-13",
+            "rebrandedName": "Vector",
+            "originalName": "Artemis - Medium Quality",
+            "shortName": "amq",
+            "version": "13",
+            "category": "Vector",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "aaa-10",
+            "rebrandedName": "Vector Auto",
+            "originalName": "Artemis - Aliasing or Moire",
+            "shortName": "aaa",
+            "version": "10",
+            "category": "Vector",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "ahq-12",
+            "rebrandedName": "Vector HQ",
+            "originalName": "Artemis - High Quality",
+            "shortName": "ahq",
+            "version": "12",
+            "category": "Vector",
+            "parameters": [
+                {
+                    "default": 0,
+                    "max": 0.1,
+                    "min": 0,
+                    "name": "Add Noise",
+                    "guiName": "Add Noise"
+                },
+                {
+                    "default": 0.2,
+                    "max": 1,
+                    "min": 0,
+                    "name": "Recover Details",
+                    "guiName": "Recover Details"
+                }
+            ]
+        },
+        {
+            "id": "thm-2",
+            "rebrandedName": "Zenith",
+            "originalName": "Themis",
+            "shortName": "thm",
+            "version": "2",
+            "category": "Special",
+            "parameters": []
+        }
+    ],
+    "video_encoders": [
+        {
+            "id": "prores-422-proxy-win",
+            "rebrandedName": "Elite ProRes 422 Proxy",
+            "originalEncoder": "ProRes",
+            "profile": "422 Proxy",
+            "ffmpegOpts": "-c:v prores_ks -profile:v 0 -vendor apl0 -quant_mat lt -bits_per_mb 525 -pix_fmt yuv422p10le"
+        },
+        {
+            "id": "prores-422-std-win",
+            "rebrandedName": "Elite ProRes 422 Std",
+            "originalEncoder": "ProRes",
+            "profile": "422 Std",
+            "ffmpegOpts": "-c:v prores_ks -profile:v 2 -vendor apl0 -quant_mat hq -bits_per_mb 1350 -pix_fmt yuv422p10le"
+        },
+        {
+            "id": "prores-422-lt-win",
+            "rebrandedName": "Elite ProRes 422 LT",
+            "originalEncoder": "ProRes",
+            "profile": "422 LT",
+            "ffmpegOpts": "-c:v prores_ks -profile:v 1 -vendor apl0 -quant_mat lt -bits_per_mb 525 -pix_fmt yuv422p10le"
+        },
+        {
+            "id": "prores-422-hq-win",
+            "rebrandedName": "Elite ProRes 422 HQ",
+            "originalEncoder": "ProRes",
+            "profile": "422 HQ",
+            "ffmpegOpts": "-c:v prores_ks -profile:v 3 -vendor apl0 -quant_mat hq -bits_per_mb 1350 -pix_fmt yuv422p10le"
+        },
+        {
+            "id": "prores-422-proxy-osx",
+            "rebrandedName": "Elite ProRes 422 Proxy",
+            "originalEncoder": "ProRes",
+            "profile": "422 Proxy",
+            "ffmpegOpts": "-c:v prores_videotoolbox -profile:v proxy -pix_fmt p210le -allow_sw 1"
+        },
+        {
+            "id": "prores-422-std-osx",
+            "rebrandedName": "Elite ProRes 422 Std",
+            "originalEncoder": "ProRes",
+            "profile": "422 Std",
+            "ffmpegOpts": "-c:v prores_videotoolbox -profile:v standard -pix_fmt p210le -allow_sw 1"
+        },
+        {
+            "id": "prores-422-lt-osx",
+            "rebrandedName": "Elite ProRes 422 LT",
+            "originalEncoder": "ProRes",
+            "profile": "422 LT",
+            "ffmpegOpts": "-c:v prores_videotoolbox -profile:v lt -pix_fmt p210le -allow_sw 1"
+        },
+        {
+            "id": "prores-422-hq-osx",
+            "rebrandedName": "Elite ProRes 422 HQ",
+            "originalEncoder": "ProRes",
+            "profile": "422 HQ",
+            "ffmpegOpts": "-c:v prores_videotoolbox -profile:v hq -pix_fmt p210le -allow_sw 1"
+        },
+        {
+            "id": "prores-422-xq-osx",
+            "rebrandedName": "Elite ProRes 4444 XQ",
+            "originalEncoder": "ProRes",
+            "profile": "4444 XQ",
+            "ffmpegOpts": "-c:v prores_videotoolbox -profile:v xq -color_range tv -pix_fmt p416le -allow_sw 1"
+        },
+        {
+            "id": "h264-high-osx-dynamic",
+            "rebrandedName": "Elite H264 High",
+            "originalEncoder": "H264",
+            "profile": "High",
+            "ffmpegOpts": "-c:v h264_videotoolbox -profile:v high -pix_fmt yuv420p -allow_sw 1 -g 30"
+        },
+        {
+            "id": "h264-high-osx",
+            "rebrandedName": "Elite H264 High",
+            "originalEncoder": "H264",
+            "profile": "High",
+            "ffmpegOpts": "-c:v h264_videotoolbox -profile:v high -pix_fmt yuv420p -allow_sw 1 -g 30"
+        },
+        {
+            "id": "h265-main-osx-dynamic",
+            "rebrandedName": "Elite H265 Main",
+            "originalEncoder": "H265",
+            "profile": "Main",
+            "ffmpegOpts": "-c:v hevc_videotoolbox -profile:v main -tag:v hvc1 -pix_fmt yuv420p -allow_sw 1 -g 30"
+        },
+        {
+            "id": "h265-main-osx",
+            "rebrandedName": "Elite H265 Main",
+            "originalEncoder": "H265",
+            "profile": "Main",
+            "ffmpegOpts": "-c:v hevc_videotoolbox -profile:v main -tag:v hvc1 -pix_fmt yuv420p -allow_sw 1 -g 30"
+        },
+        {
+            "id": "h265-main10-osx-dynamic",
+            "rebrandedName": "Elite H265 Main10",
+            "originalEncoder": "H265",
+            "profile": "Main10",
+            "ffmpegOpts": "-c:v hevc_videotoolbox -profile:v main10 -tag:v hvc1 -pix_fmt p010le -allow_sw 1 -g 30"
+        },
+        {
+            "id": "h265-main10-osx",
+            "rebrandedName": "Elite H265 Main10",
+            "originalEncoder": "H265",
+            "profile": "Main10",
+            "ffmpegOpts": "-c:v hevc_videotoolbox -profile:v main10 -tag:v hvc1 -pix_fmt p010le -allow_sw 1 -g 30"
+        },
+        {
+            "id": "h264-high-win-amd",
+            "rebrandedName": "Elite H264 High",
+            "originalEncoder": "H264",
+            "profile": "High",
+            "ffmpegOpts": "-c:v h264_amf -profile:v high -pix_fmt yuv420p -g 30"
+        },
+        {
+            "id": "h265-main-win-amd",
+            "rebrandedName": "Elite H265 Main",
+            "originalEncoder": "H265",
+            "profile": "Main",
+            "ffmpegOpts": "-c:v hevc_amf -profile:v main -profile_tier main -tag:v hvc1 -pix_fmt yuv420p -g 30"
+        },
+        {
+            "id": "h265-high-win-amd",
+            "rebrandedName": "Elite H265 High",
+            "originalEncoder": "H265",
+            "profile": "High",
+            "ffmpegOpts": "-c:v hevc_amf -profile:v main -profile_tier high -tag:v hvc1 -pix_fmt yuv420p -g 30"
+        },
+        {
+            "id": "h264-main-win-nvidia",
+            "rebrandedName": "Elite H264 High",
+            "originalEncoder": "H264",
+            "profile": "High",
+            "ffmpegOpts": "-c:v h264_nvenc -profile:v high -pix_fmt yuv420p -g 30"
+        },
+        {
+            "id": "h265-main-win-nvidia",
+            "rebrandedName": "Elite H265 Main",
+            "originalEncoder": "H265",
+            "profile": "Main",
+            "ffmpegOpts": "-c:v hevc_nvenc -profile:v main -pix_fmt yuv420p -b_ref_mode disabled -tag:v hvc1 -g 30"
+        },
+        {
+            "id": "h265-main10-win-nvidia",
+            "rebrandedName": "Elite H265 Main10",
+            "originalEncoder": "H265",
+            "profile": "Main10",
+            "ffmpegOpts": "-c:v hevc_nvenc -profile:v main10 -pix_fmt p010le -b_ref_mode disabled -tag:v hvc1 -g 30"
+        },
+        {
+            "id": "h264-high-win-intel",
+            "rebrandedName": "Elite H264 High",
+            "originalEncoder": "H264",
+            "profile": "High",
+            "ffmpegOpts": "-c:v h264_qsv -profile:v high -preset medium -max_frame_size 65534 -pix_fmt nv12 -g 30"
+        },
+        {
+            "id": "h265-main-win-intel",
+            "rebrandedName": "Elite H265 Main",
+            "originalEncoder": "H265",
+            "profile": "Main",
+            "ffmpegOpts": "-c:v hevc_qsv -profile:v main -preset medium -max_frame_size 65534 -pix_fmt nv12 -g 30"
+        },
+        {
+            "id": "h265-main10-win-intel",
+            "rebrandedName": "Elite H265 Main10",
+            "originalEncoder": "H265",
+            "profile": "Main10",
+            "ffmpegOpts": "-c:v hevc_qsv -profile:v main10 -preset medium -max_frame_size 65534 -pix_fmt p010le -g 30"
+        },
+        {
+            "id": "av1-win-nvidia",
+            "rebrandedName": "Elite AV1 8-bit",
+            "originalEncoder": "AV1",
+            "profile": "8-bit",
+            "ffmpegOpts": "-c:v av1_nvenc -preset p7 -pix_fmt yuv420p"
+        },
+        {
+            "id": "av1-10bit-win-nvidia",
+            "rebrandedName": "Elite AV1 10-bit",
+            "originalEncoder": "AV1",
+            "profile": "10-bit",
+            "ffmpegOpts": "-c:v av1_nvenc -preset p7 -pix_fmt p010le"
+        },
+        {
+            "id": "av1-win-amd",
+            "rebrandedName": "Elite AV1",
+            "originalEncoder": "AV1",
+            "profile": "",
+            "ffmpegOpts": "-c:v av1_amf -profile:v main -quality:v balanced -pix_fmt yuv420p"
+        },
+        {
+            "id": "av1-win-arc",
+            "rebrandedName": "Elite AV1",
+            "originalEncoder": "AV1",
+            "profile": "",
+            "ffmpegOpts": "-c:v av1_qsv -profile:v main -preset 4 -pix_fmt nv12"
+        },
+        {
+            "id": "ffv1-8bit-420",
+            "rebrandedName": "Elite FFV1 8-bit 4:2:0",
+            "originalEncoder": "FFV1",
+            "profile": "8-bit 4:2:0",
+            "ffmpegOpts": "-level 3 -c:v ffv1 -pix_fmt yuv420p -slices 4 -slicecrc 1 -g 1"
+        },
+        {
+            "id": "ffv1-10bit-420",
+            "rebrandedName": "Elite FFV1 10-bit 4:2:0",
+            "originalEncoder": "FFV1",
+            "profile": "10-bit 4:2:0",
+            "ffmpegOpts": "-level 3 -c:v ffv1 -pix_fmt yuv420p10le -slices 4 -slicecrc 1 -g 1"
+        },
+        {
+            "id": "ffv1-12bit-420",
+            "rebrandedName": "Elite FFV1 12-bit 4:2:0",
+            "originalEncoder": "FFV1",
+            "profile": "12-bit 4:2:0",
+            "ffmpegOpts": "-level 3 -c:v ffv1 -pix_fmt yuv420p12le -slices 4 -slicecrc 1 -g 1"
+        },
+        {
+            "id": "ffv1-8bit-422",
+            "rebrandedName": "Elite FFV1 8-bit 4:2:2",
+            "originalEncoder": "FFV1",
+            "profile": "8-bit 4:2:2",
+            "ffmpegOpts": "-level 3 -c:v ffv1 -pix_fmt yuv422p -slices 4 -slicecrc 1 -g 1"
+        },
+        {
+            "id": "ffv1-10bit-422",
+            "rebrandedName": "Elite FFV1 10-bit 4:2:2",
+            "originalEncoder": "FFV1",
+            "profile": "10-bit 4:2:2",
+            "ffmpegOpts": "-level 3 -c:v ffv1 -pix_fmt yuv422p10le -slices 4 -slicecrc 1 -g 1"
+        },
+        {
+            "id": "ffv1-12bit-422",
+            "rebrandedName": "Elite FFV1 12-bit 4:2:2",
+            "originalEncoder": "FFV1",
+            "profile": "12-bit 4:2:2",
+            "ffmpegOpts": "-level 3 -c:v ffv1 -pix_fmt yuv422p12le -slices 4 -slicecrc 1 -g 1"
+        },
+        {
+            "id": "ffv1-8bit-444",
+            "rebrandedName": "Elite FFV1 8-bit 4:4:4",
+            "originalEncoder": "FFV1",
+            "profile": "8-bit 4:4:4",
+            "ffmpegOpts": "-level 3 -c:v ffv1 -pix_fmt yuv444p -slices 4 -slicecrc 1 -g 1"
+        },
+        {
+            "id": "ffv1-10bit-444",
+            "rebrandedName": "Elite FFV1 10-bit 4:4:4",
+            "originalEncoder": "FFV1",
+            "profile": "10-bit 4:4:4",
+            "ffmpegOpts": "-level 3 -c:v ffv1 -pix_fmt yuv444p10le -slices 4 -slicecrc 1 -g 1"
+        },
+        {
+            "id": "ffv1-12bit-444",
+            "rebrandedName": "Elite FFV1 12-bit 4:4:4",
+            "originalEncoder": "FFV1",
+            "profile": "12-bit 4:4:4",
+            "ffmpegOpts": "-level 3 -c:v ffv1 -pix_fmt yuv444p12le -slices 4 -slicecrc 1 -g 1"
+        },
+        {
+            "id": "vp9-good",
+            "rebrandedName": "Elite VP9 Good",
+            "originalEncoder": "VP9",
+            "profile": "Good",
+            "ffmpegOpts": "-strict -2 -c:v libvpx-vp9 -pix_fmt yuv420p -row-mt 1 -deadline good"
+        },
+        {
+            "id": "vp9-best",
+            "rebrandedName": "Elite VP9 Best",
+            "originalEncoder": "VP9",
+            "profile": "Best",
+            "ffmpegOpts": "-strict -2 -c:v libvpx-vp9 -pix_fmt yuv420p -row-mt 1 -deadline best"
+        },
+        {
+            "id": "QuickTime-v210",
+            "rebrandedName": "Elite QuickTime V210 Uncompressed YUV 10-bit 4:2:2",
+            "originalEncoder": "QuickTime V210",
+            "profile": "Uncompressed YUV 10-bit 4:2:2",
+            "ffmpegOpts": "-c:v v210 -pix_fmt yuv422p10le"
+        },
+        {
+            "id": "QuickTime-r210",
+            "rebrandedName": "Elite QuickTime R210 Uncompressed RGB 10-bit",
+            "originalEncoder": "QuickTime R210",
+            "profile": "Uncompressed RGB 10-bit",
+            "ffmpegOpts": "-c:v r210 -pix_fmt gbrp10le"
+        },
+        {
+            "id": "QTRLE",
+            "rebrandedName": "Elite QuickTime Animation Run-length compressed RGB 8-bit",
+            "originalEncoder": "QuickTime Animation",
+            "profile": "Run-length compressed RGB 8-bit",
+            "ffmpegOpts": "-c:v qtrle -pix_fmt rgb24"
+        },
+        {
+            "id": "tiff-8bit",
+            "rebrandedName": "Elite TIFF 8-bit",
+            "originalEncoder": "TIFF",
+            "profile": "8-bit",
+            "ffmpegOpts": "-c:v tiff -pix_fmt rgb24 -compression_algo deflate"
+        },
+        {
+            "id": "tiff-16bit",
+            "rebrandedName": "Elite TIFF 16-bit",
+            "originalEncoder": "TIFF",
+            "profile": "16-bit",
+            "ffmpegOpts": "-c:v tiff -pix_fmt rgb48le -compression_algo deflate"
+        },
+        {
+            "id": "png-8bit",
+            "rebrandedName": "Elite PNG 8-bit",
+            "originalEncoder": "PNG",
+            "profile": "8-bit",
+            "ffmpegOpts": "-c:v png -pix_fmt rgb24"
+        },
+        {
+            "id": "png-16bit",
+            "rebrandedName": "Elite PNG 16-bit",
+            "originalEncoder": "PNG",
+            "profile": "16-bit",
+            "ffmpegOpts": "-c:v png -pix_fmt rgb48be"
+        },
+        {
+            "id": "jpeg-8bit",
+            "rebrandedName": "Elite JPEG 8-bit",
+            "originalEncoder": "JPEG",
+            "profile": "8-bit",
+            "ffmpegOpts": "-pix_fmt rgb24 -q:v 2"
+        },
+        {
+            "id": "exr",
+            "rebrandedName": "Elite EXR",
+            "originalEncoder": "EXR",
+            "profile": "",
+            "ffmpegOpts": "-q:v 2"
+        },
+        {
+            "id": "dpx-10",
+            "rebrandedName": "Elite DPX 10-bit",
+            "originalEncoder": "DPX",
+            "profile": "10-bit",
+            "ffmpegOpts": "-c:v dpx -pix_fmt gbrp10le"
+        },
+        {
+            "id": "dpx-12",
+            "rebrandedName": "Elite DPX 12-bit",
+            "originalEncoder": "DPX",
+            "profile": "12-bit",
+            "ffmpegOpts": "-c:v dpx -pix_fmt gbrp12le"
+        }
+    ],
+    "audio_codecs": [
+        {
+            "id": "",
+            "rebrandedName": "Elite Unknown",
+            "ffmpegOpts": "aac -ac 2"
+        },
+        {
+            "id": "",
+            "rebrandedName": "Elite Unknown",
+            "ffmpegOpts": "ac3"
+        },
+        {
+            "id": "",
+            "rebrandedName": "Elite Unknown",
+            "ffmpegOpts": "pcm_s24le"
+        },
+        {
+            "id": "",
+            "rebrandedName": "Elite Unknown",
+            "ffmpegOpts": "vorbis -ac 2"
+        }
+    ]
+}

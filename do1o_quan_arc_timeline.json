@@ -1,0 +1,58 @@
+{
+    "clips": [
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1o and Quan/IMG_6942.mp4",
+            "startTime": 0,
+            "duration": 258.0,
+            "filter": "Elite Zoom"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1o and Quan/IMG_6943.mp4",
+            "startTime": 0,
+            "duration": 116.0,
+            "filter": "Elite Angle (Left)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1o and Quan/IMG_6944.mp4",
+            "startTime": 0,
+            "duration": 45.9,
+            "filter": "Elite Angle (Right)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1o and Quan/IMG_6945.mp4",
+            "startTime": 0,
+            "duration": 111.0,
+            "filter": "Elite Motion (Pan)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1o and Quan/IMG_7864.mp4",
+            "startTime": 0,
+            "duration": 413.1,
+            "filter": "Elite Zoom"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1o and Quan/IMG_7866.mp4",
+            "startTime": 0,
+            "duration": 175.9,
+            "filter": "Elite Angle (Right)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1o and Quan/IMG_8213.mp4",
+            "startTime": 0,
+            "duration": 264.5,
+            "filter": "Elite Angle (Left)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1o and Quan/IMG_8214 (1).mp4",
+            "startTime": 0,
+            "duration": 278.1,
+            "filter": "Elite Motion (Pan)"
+        },
+        {
+            "fileURL": "/Volumes/LSJ PROJECTS/Do1o and Quan/IMG_8214.mp4",
+            "startTime": 0,
+            "duration": 278.1,
+            "filter": "Elite Zoom"
+        }
+    ]
+}
