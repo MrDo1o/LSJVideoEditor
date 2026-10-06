@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LSJ Elite Video Editor</title>
+<style>
+:root {
+  --bg:#070a12; --card:#0d1321; --ink:#eef3f8; --muted:#8b93a7; --dim:#5b6478;
+  --cyan:#66e0e0; --jade:#3d9b72; --alert:#c44545; --play:#e23d3d; --line:#1a2233;
+  --sans:Inter,"Segoe UI",system-ui,sans-serif; --mono:"IBM Plex Mono",Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--ink);font:13px/1.4 var(--sans);overflow:hidden;user-select:none}
+button,input,select,textarea{font:inherit;color:inherit}
+button{border:0;background:transparent;cursor:pointer}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:#243049}
+#app{height:100vh;display:flex;flex-direction:column}
+.splash{position:absolute;inset:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:80;transition:opacity .4s}
+.splash.hide{opacity:0;pointer-events:none;visibility:hidden}
+.mark{display:flex;align-items:flex-start;gap:8px}
+.mark h1{font-size:88px;letter-spacing:-2px;line-height:.9}
+.bars{display:flex;gap:4px;height:56px;margin:16px 0}
+.bars i{background:var(--cyan);display:block}
+.sub{letter-spacing:10px;font-weight:300;color:#ccc}
+.menubar{height:28px;display:flex;align-items:center;background:#080c16;flex-shrink:0;padding:0 6px;gap:2px}
+.menu{position:relative}
+.menu>button{padding:4px 10px;color:var(--muted)}
+.menu:hover>button,.menu.open>button{color:var(--cyan);background:#121a2b}
+.dd{display:none;position:absolute;top:24px;left:0;min-width:230px;background:var(--card);z-index:40;padding:6px 0}
+.menu:hover .dd,.menu.open .dd{display:block}
+.dd b{display:block;padding:6px 12px;color:var(--dim);font-size:10px;letter-spacing:1px}
+.dd button{display:flex;justify-content:space-between;width:100%;padding:6px 12px;text-align:left}
+.dd button:hover{background:#121a2b}
+.dd kbd{color:var(--dim);font:11px var(--mono)}
+.top{height:52px;display:flex;align-items:center;gap:10px;padding:0 10px;background:var(--card);flex-shrink:0}
+.brand b{display:block;font-size:12px}
+.brand small{color:var(--muted);font-size:10px}
+.ai{flex:1;display:flex;align-items:center;gap:8px;background:#0a101c;height:32px;padding:0 10px}
+.ai input{flex:1;border:0;background:transparent;outline:none}
+.btn,.icon{min-height:30px;padding:0 10px;background:#121a2b}
+.btn.cyan{background:var(--cyan);color:#041016;font-weight:700}
+.icon{width:32px;padding:0}
+.icon.on{color:var(--cyan)}
+.stage{flex:1;min-height:0;display:grid;grid-template-columns:300px 1fr 300px;gap:8px;padding:8px}
+.card{background:var(--card);min-height:0;display:flex;flex-direction:column}
+.head{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;font-weight:600}
+.tabs{display:flex;gap:4px;padding:0 8px 8px}
+.tabs button{padding:4px 8px;color:var(--muted)}
+.tabs button.on{color:var(--cyan);background:#10202a}
+.search{margin:0 8px 8px;background:#0a101c;border:0;height:28px;padding:0 8px;width:calc(100% - 16px)}
+.bin{overflow:auto;padding:0 8px 8px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.clip{background:#0a101c;padding:6px;cursor:grab}
+.clip.sel{outline:1px solid var(--cyan)}
+.thumb{height:70px;background:#101826 center/cover no-repeat;position:relative}
+.thumb button{position:absolute;top:4px;right:4px;width:18px;height:18px;background:#070a12}
+.clip em{display:block;margin-top:5px;font-style:normal;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{color:var(--dim);font-size:10px}
+.player{flex:1;display:flex;flex-direction:column;min-height:0}
+.viewport{flex:1;min-height:160px;background:#05070c;position:relative;display:flex;align-items:center;justify-content:center}
+#still,#video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+#still{z-index:1;display:none;object-fit:contain}
+#video{z-index:2;background:transparent}
+.viewport.compare video{clip-path:inset(0 50% 0 0)}
+.ghost{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.55;clip-path:inset(0 0 0 50%);pointer-events:none}
+.empty{color:var(--dim);z-index:0}
+.cap{position:absolute;bottom:18%;left:50%;transform:translateX(-50%);background:#0007;padding:4px 10px;font-size:16px}
+.transport{display:flex;align-items:center;gap:8px;padding:6px 10px}
+.t{font:12px var(--mono);color:var(--muted);min-width:72px}
+.inspect{overflow:auto;padding:0 10px 10px}
+.box{background:#0a101c;padding:10px;margin-bottom:8px}
+.box h4{font-size:10px;letter-spacing:1.2px;color:var(--dim);margin-bottom:8px;text-transform:uppercase}
+.kv,.field{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;color:var(--muted);font-size:12px}
+.kv b{color:var(--ink);font-weight:500}
+.field input[type=range]{flex:1;accent-color:var(--cyan)}
+.field input[type=text],.field select,.field textarea{flex:1;background:#070a12;border:0;height:26px;padding:0 6px}
+.field textarea{height:52px;padding:6px}
+.prod{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.prod button{background:#121a2b;padding:7px 6px;font-size:11px}
+.filters{background:var(--card);margin:0 8px;flex-shrink:0}
+.cats,.pills{display:flex;gap:6px;overflow-x:auto;padding:6px 10px}
+.cat,.pill{padding:5px 9px;font-size:11px;color:var(--muted);white-space:nowrap}
+.cat.on,.pill.on{color:var(--cyan);background:#10202a}
+.editbar{display:flex;gap:6px;align-items:center;padding:4px 10px 8px}
+.tl{height:300px;margin:0 8px 8px;background:var(--card);display:flex;flex-direction:column;min-height:0}
+.ruler{height:22px;position:relative;margin-left:40px;color:var(--dim);font:10px var(--mono);overflow:hidden}
+.tlwrap{flex:1;overflow:auto;position:relative}
+.tracks{position:relative;padding:4px 0 8px 40px}
+.track{height:62px;margin:5px 0;background:#0a101c;position:relative}
+.track.audio{height:36px}
+.tlabel{position:absolute;left:-36px;top:22px;width:32px;text-align:right;color:var(--dim);font-size:10px}
+.track.audio .tlabel{top:10px}
+.tclip{position:absolute;top:3px;height:56px;background:#0a1520;overflow:hidden;cursor:grab}
+.tclip.sel{outline:1px solid var(--cyan)}
+.tclip.audio{height:30px;background:#143326}
+.tclip.cutmode{cursor:col-resize}
+.tclip span{position:absolute;left:8px;top:2px;z-index:2;font-size:10px;padding:1px 5px;background:#0008;max-width:80%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.strip{display:flex;height:100%;}
+.strip img{height:100%;width:72px;object-fit:cover;flex-shrink:0;pointer-events:none;border-right:1px solid #070a12}
+.wave{position:absolute;left:0;right:0;bottom:0;height:12px;display:flex;align-items:flex-end;gap:1px;padding:0 4px;opacity:.55;z-index:1}
+.wave i{flex:1;background:var(--cyan);min-width:1px}
+.razor{position:absolute;top:0;bottom:0;width:1px;background:#fff;z-index:4;pointer-events:none;display:none}
+.tclip.cutmode:hover .razor{display:block}
+.handle{position:absolute;top:0;width:6px;height:100%;background:#d7e6ea;cursor:ew-resize}
+.handle.l{left:0}.handle.r{right:0}
+.playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--play);z-index:6;pointer-events:none}
+.marker{position:absolute;top:0;width:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #d4a017;z-index:5}
+.status{height:26px;display:flex;justify-content:space-between;align-items:center;padding:0 12px;background:#080c16;color:var(--muted);font-size:11px}
+.status b{color:var(--cyan);font-weight:500}
+.warn{color:#d4a017}
+.overlay{position:absolute;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:50}
+.overlay.on{display:flex}
+.panel{width:480px;background:var(--card);padding:24px}
+.panel h3{font-weight:300;font-size:22px;margin-bottom:14px}
+.bar{height:4px;background:#121a2b;margin:14px 0 8px}
+.bar i{display:block;height:100%;width:0;background:var(--cyan)}
+.hist{position:absolute;right:16px;top:86px;width:250px;max-height:58vh;overflow:auto;background:var(--card);padding:10px;z-index:20;display:none}
+.hist.on{display:block}
+.hist p{font:11px var(--mono);color:var(--muted);padding:5px 0}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="splash" id="splash" onclick="hideSplash()">
+    <div>
+      <div class="mark"><h1>LSJ</h1><span>TM</span></div>
+      <div class="bars" id="bars"></div>
+      <div class="sub">DIGITAL ARCHITECTURE</div>
+    </div>
+  </div>
+
+  <nav class="menubar">
+    <div class="menu"><button>File</button><div class="dd">
+      <button onclick="api('new_project')">New Project <kbd>Ctrl+N</kbd></button>
+      <button onclick="api('open_project')">Open Project… <kbd>Ctrl+O</kbd></button>
+      <button onclick="api('import_media')">Import Media (many)… <kbd>Ctrl+I</kbd></button>
+      <button onclick="api('import_screen_recordings')">Import Screen Recordings…</button>
+      <button onclick="api('import_folder')">Import Whole Folder…</button>
+      <button onclick="api('save_project')">Save <kbd>Ctrl+S</kbd></button>
+      <button onclick="api('save_project_as')">Save As…</button>
+      <button onclick="openExport()">Export… <kbd>Ctrl+E</kbd></button>
+    </div></div>
+    <div class="menu"><button>Edit</button><div class="dd">
+      <button onclick="api('undo')">Undo <kbd>Ctrl+Z</kbd></button>
+      <button onclick="api('redo')">Redo <kbd>Ctrl+Y</kbd></button>
+      <button onclick="api('copy_selected')">Copy <kbd>Ctrl+C</kbd></button>
+      <button onclick="api('paste_clips')">Paste <kbd>Ctrl+V</kbd></button>
+      <button onclick="api('duplicate_selected')">Duplicate</button>
+      <button onclick="api('select_all_timeline')">Select All Timeline <kbd>Ctrl+A</kbd></button>
+      <button onclick="api('select_all_media')">Select All Media</button>
+      <button onclick="api('deselect_all')">Deselect All</button>
+      <button onclick="api('split_at_playhead')">Split at Playhead <kbd>B</kbd></button>
+      <button onclick="api('delete_selected')">Delete <kbd>Del</kbd></button>
+      <button onclick="api('ripple_delete')">Ripple Delete</button>
+      <button onclick="api('detach_audio')">Detach Audio</button>
+      <button onclick="api('reverse_selected')">Reverse</button>
+      <button onclick="api('freeze_frame')">Freeze Frame</button>
+    </div></div>
+    <div class="menu"><button>View</button><div class="dd">
+      <button onclick="api('zoom_in')">Zoom In <kbd>=</kbd></button>
+      <button onclick="api('zoom_out')">Zoom Out <kbd>-</kbd></button>
+      <button onclick="api('zoom_fit')">Fit Timeline</button>
+      <button onclick="api('toggle_snap')">Toggle Snap</button>
+      <button onclick="api('toggle_comparison')">Comparison Mode</button>
+      <button onclick="api('toggle_history')">History</button>
+      <button onclick="api('add_track','video')">Add Video Track</button>
+      <button onclick="api('add_track','audio')">Add Audio Track</button>
+    </div></div>
+    <div class="menu"><button>Playback</button><div class="dd">
+      <button onclick="togglePlay()">Play / Pause <kbd>Space</kbd></button>
+      <button onclick="seekBy(-5)">Back 5s</button>
+      <button onclick="seekBy(5)">Forward 5s</button>
+      <button onclick="seekBy(-30)">Back 30s</button>
+      <button onclick="seekBy(30)">Forward 30s</button>
+      <button onclick="api('set_time',0)">Go to Start</button>
+      <button onclick="api('mark_in_point')">Mark In <kbd>I</kbd></button>
+      <button onclick="api('mark_out_point')">Mark Out <kbd>O</kbd></button>
+      <button onclick="api('add_marker')">Add Marker <kbd>M</kbd></button>
+    </div></div>
+    <div class="menu"><button>Kweenesha</button><div class="dd">
+      <button onclick="api('ai_edit','Perform a smart creative edit')">Ask Kweenesha</button>
+      <button onclick="api('autoshot')">Smart Cut (AutoShot)</button>
+      <button onclick="api('hdr_master')">Elite HDR Master</button>
+      <button onclick="api('stabilize_selected')">Full-Frame Stabilize</button>
+      <b>UPSCALE</b>
+      <button onclick="api('upscale_selected',2)">Upscale 2x</button>
+      <button onclick="api('upscale_selected',4)">Upscale 4x</button>
+      <button onclick="api('enhance_selected')">Enhance (Proteus)</button>
+      <button onclick="api('generate_captions')">Generate Captions</button>
+      <button onclick="api('beat_sync')">Beat Sync</button>
+      <button onclick="api('action_pulse')">Action Pulse</button>
+      <button onclick="api('director_mode')">Director Mode</button>
+      <button onclick="api('mashup',180)">Rhythm Mashup</button>
+      <button onclick="api('master_render')">Master Render</button>
+      <button onclick="api('smart_vault')">Smart Vault Audit</button>
+    </div></div>
+    <div class="menu"><button>Filters</button><div class="dd" id="filterMenu"></div></div>
+    <div class="menu"><button>Help</button><div class="dd">
+      <button onclick="window.open('https://LSJSystems.com')">LSJ Systems Documentation</button>
+      <button>LSJ Elite Video Editor™</button>
+      <button>© 2026 LSJ Systems</button>
+    </div></div>
+  </nav>
+
+  <header class="top">
+    <div class="brand"><b id="proj">Untitled</b><small>LSJ Elite · Kweenesha</small></div>
+    <form class="ai" onsubmit="return sendAI(event)">
+      <span id="keLabel">KWEENESHA</span>
+      <input id="aiInput" placeholder="Talk to Kweenesha — mashup, AutoShot, stabilize, captions…">
+    </form>
+    <div>
+      <div class="meta" id="rhythmLabel">Rhythm 3m</div>
+      <input type="range" min="10" max="300" step="10" value="180" id="rhythm" oninput="api('set_rhythm',Number(this.value))">
+    </div>
+    <button class="btn cyan" onclick="api('director_mode')">Director</button>
+    <button class="btn" onclick="openExport()">Export</button>
+  </header>
+
+  <div class="stage">
+    <aside class="card">
+      <div class="head">Media Bin
+        <span>
+          <button class="icon" onclick="api('import_media')" title="Import media">+</button>
+          <button class="icon" onclick="api('import_screen_recordings')" title="Screen recordings / MOV">R</button>
+          <button class="icon" onclick="api('import_folder')" title="Import folder">F</button>
+        </span>
+      </div>
+      <div class="tabs">
+        <button class="on" id="k-all" onclick="setKind('all')">All</button>
+        <button id="k-video" onclick="setKind('video')">Video</button>
+        <button id="k-audio" onclick="setKind('audio')">Audio</button>
+        <button id="k-image" onclick="setKind('image')">Stills</button>
+      </div>
+      <input class="search" id="binq" placeholder="Search bin" oninput="api('set_bin_filter',this.value,S.binKind)">
+      <div class="bin" id="bin"></div>
+    </aside>
+    <div class="card player">
+      <div class="viewport" id="viewport">
+        <img id="still" alt="">
+        <video id="video" playsinline preload="auto" muted></video>
+        <div class="empty" id="empty">Drop media or import from disk</div>
+        <div class="cap" id="cap" hidden></div>
+      </div>
+      <div class="transport">
+        <span class="t" id="tcur">0:00.00</span>
+        <button class="icon" onclick="seekBy(-5)">-5</button>
+        <button class="icon" id="playBtn" onclick="togglePlay()">Play</button>
+        <button class="icon" onclick="seekBy(5)">+5</button>
+        <input type="range" id="seek" min="0" max="1000" value="0" oninput="api('set_time',Number(this.value)/100)">
+        <span class="t" id="ttot">0:00.00</span>
+        <button class="icon" onclick="api('toggle_comparison')">AB</button>
+      </div>
+    </div>
+    <aside class="card">
+      <div class="head">Inspector</div>
+      <div class="inspect" id="inspect"></div>
+    </aside>
+  </div>
+
+  <div class="filters">
+    <div class="cats" id="cats"></div>
+    <div class="pills" id="pills"></div>
+    <div class="editbar">
+      <button class="icon" id="selTool" onclick="api('set_tool','select')">V</button>
+      <button class="icon" id="cutTool" onclick="api('set_tool','cut')">C</button>
+      <button class="icon" onclick="api('split_at_playhead')">Split</button>
+      <button class="icon" onclick="api('import_screen_recordings')">Recordings</button>
+      <button class="icon" onclick="api('ripple_delete')">Ripple</button>
+      <button class="icon" onclick="api('delete_selected')">Del</button>
+      <button class="icon" onclick="api('zoom_out')">-</button>
+      <button class="icon" onclick="api('zoom_in')">+</button>
+      <span style="flex:1"></span>
+      <button class="btn" onclick="api('add_all_to_timeline')">Add All</button>
+      <button class="btn" onclick="api('mashup',180)">Mashup</button>
+      <button class="btn" id="modeBtn" onclick="api('toggle_timeline_mode')">Timeline</button>
+    </div>
+  </div>
+
+  <div class="tl">
+    <div class="ruler" id="ruler"></div>
+    <div class="tlwrap" id="tlwrap" onclick="seekFromTimeline(event)">
+      <div class="tracks" id="tracks"></div>
+      <div class="playhead" id="playhead"></div>
+    </div>
+  </div>
+
+  <footer class="status">
+    <span id="status">Ready</span>
+    <span id="ffstat"></span>
+  </footer>
+  <div class="hist" id="hist"></div>
+  <div class="overlay" id="overlay">
+    <div class="panel">
+      <h3>Elite Master Render</h3>
+      <div class="field"><label>Preset</label>
+        <select id="preset" onchange="applyPreset()">
+          <option value="1920x1080|30">YouTube 1080p30</option>
+          <option value="3840x2160|30">YouTube 4K</option>
+          <option value="1080x1920|30">TikTok 9:16</option>
+          <option value="1080x1080|30">Instagram 1:1</option>
+          <option value="1920x1080|24">Cinema 1080p24</option>
+          <option value="1920x1080|60">60fps Master</option>
+        </select>
+      </div>
+      <div class="field"><label>Resolution</label>
+        <select id="res"><option>1920x1080</option><option>3840x2160</option><option>1080x1920</option><option>1080x1080</option><option>1280x720</option></select>
+      </div>
+      <div class="field"><label>Frame Rate</label>
+        <select id="fps"><option>24</option><option selected>30</option><option>60</option></select>
+      </div>
+      <div class="field"><label>Container</label>
+        <select id="cont"><option>mp4</option><option>mov</option></select>
+      </div>
+      <div class="bar"><i id="pbar"></i></div>
+      <p class="meta" id="pstat">Mastering: denoise, sharpen, loudnorm</p>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn" onclick="closeExport()">Cancel</button>
+        <button class="btn cyan" onclick="startExport()">Start Render</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const waves = {};
+let S = null, playing = false, lastPreview = "", pps = 24;
+document.getElementById("bars").innerHTML = [10,30,15,40,20,5,25,15,35,10,20,45,15,30].map(w=>`<i style="width:${w}px"></i>`).join("");
+function hideSplash(){
+  const el=document.getElementById("splash");
+  if(el) el.classList.add("hide");
+}
+setTimeout(hideSplash, 700);
+function waitApi(){return new Promise(r=>{const t=()=>window.pywebview&&window.pywebview.api?r():setTimeout(t,40);t();});}
+async function api(name,...args){
+  try{
+    const state=await window.pywebview.api[name](...args);
+    render(state);
+    return state;
+  }catch(err){
+    hideSplash();
+    const st=document.getElementById("status");
+    if(st) st.textContent="Error: "+err;
+    return S;
+  }
+}
+function fmt(sec){sec=Math.max(0,Number(sec)||0);const m=Math.floor(sec/60),s=Math.floor(sec%60),cs=Math.floor((sec%1)*100);return `${m}:${String(s).padStart(2,"0")}.${String(cs).padStart(2,"0")}`;}
+function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function render(state){
+  if(!state) return;
+  hideSplash();
+  try { _renderInner(state); } catch (err) { console.error(err); }
+}
+function _renderInner(state){
+  S=state; pps=state.pixelsPerSecond||24;
+  const has=state.clips.length>0 || state.timeline.length>0;
+  document.getElementById("proj").textContent=state.projectName;
+  document.getElementById("status").textContent=state.aiStatus||"Ready";
+  document.getElementById("ffstat").innerHTML=
+    (state.keOnline?`<b>KE</b> ${esc(state.keModel||"kweenesha")}`:`<span class="warn">KE offline</span>`)
+    +" · "+(state.ffmpeg?`<b>FFmpeg</b> · ${state.videoTrackCount}V/${state.audioTrackCount}A`:`<span class="warn">FFmpeg missing</span>`);
+  const ke=document.getElementById("keLabel");
+  if(ke) ke.style.color=state.keOnline?"var(--cyan)":"var(--alert)";
+  document.getElementById("rhythm").value=state.directorRhythm;
+  document.getElementById("rhythmLabel").textContent=`Rhythm ${Math.round(state.directorRhythm/60)}m`;
+  document.getElementById("modeBtn").textContent=state.isTimelineMode?"Timeline":"Clip";
+  document.getElementById("selTool").classList.toggle("on",state.tool==="select");
+  document.getElementById("cutTool").classList.toggle("on",state.tool==="cut");
+  document.getElementById("tcur").textContent=fmt(state.currentTime);
+  document.getElementById("ttot").textContent=fmt(state.totalDuration);
+  const seek=document.getElementById("seek");
+  seek.max=Math.max(1,Math.floor(state.totalDuration*100));
+  seek.value=Math.floor(state.currentTime*100);
+  document.getElementById("viewport").classList.toggle("compare",!!state.comparison);
+  renderBin(state); renderInspect(state); renderFilters(state); renderTimeline(state); renderPreview(state); renderHist(state); renderFilterMenu(state);
+  if(state.isProcessing){document.getElementById("overlay").classList.add("on");document.getElementById("pbar").style.width=`${Math.round((state.processingProgress||0)*100)}%`;document.getElementById("pstat").textContent=state.aiStatus;}
+}
+function filteredClips(state){
+  const q=(state.binQuery||"").toLowerCase();
+  return state.clips.filter(c=>{
+    if(state.binKind==="video" && (c.is_audio||c.is_image)) return false;
+    if(state.binKind==="audio" && !c.is_audio) return false;
+    if(state.binKind==="image" && !c.is_image) return false;
+    return !q || (c.name||"").toLowerCase().includes(q);
+  });
+}
+function setKind(k){["all","video","audio","image"].forEach(x=>document.getElementById("k-"+x).classList.toggle("on",x===k));api("set_bin_filter",document.getElementById("binq").value,k);}
+function renderBin(state){
+  document.getElementById("bin").innerHTML=filteredClips(state).map(c=>`
+    <div class="clip ${state.selectedClipId===c.id?"sel":""}" draggable="true"
+      ondragstart="event.dataTransfer.setData('clip','${c.id}')"
+      onclick="api('select_clip','${c.id}')">
+      <div class="thumb" style="background-image:url('/thumb/${c.id}.jpg')">
+        <button onclick="event.stopPropagation();api('add_to_timeline','${c.id}')">+</button>
+      </div>
+      <em>${esc(c.name)}</em>
+      <div class="meta">${fmt(c.duration)} ${c.width?c.width+"x"+c.height:""} ${c.codec||""}</div>
+    </div>`).join("");
+}
+function slider(tid,key,label,min,max,step,val){
+  return `<div class="field"><label>${label}</label>
+    <input type="range" min="${min}" max="${max}" step="${step}" value="${val}"
+      onchange="api('update_clip','${tid}',{${key}:Number(this.value)})"><b>${Number(val).toFixed(2)}</b></div>`;
+}
+function renderInspect(state){
+  const tid=(state.selectedTimelineIds||[])[0];
+  const tc=state.timeline.find(c=>c.id===tid);
+  const mc=state.clips.find(c=>c.id===state.selectedClipId);
+  const box=document.getElementById("inspect");
+  if(tc){
+    box.innerHTML=`
+      <div class="box"><h4>Timeline Clip</h4>
+        <div class="kv">Name <b>${esc(tc.name)}</b></div>
+        <div class="kv">In / Dur <b>${fmt(tc.sourceIn)} / ${tc.duration.toFixed(2)}s</b></div>
+        <div class="kv">Track <b>T${tc.track+1}</b></div>
+        <div class="kv">Filter <b>${esc(tc.filter||"Original")}</b></div>
+      </div>
+      <div class="box"><h4>Transform</h4>
+        ${slider(tc.id,"scale","Scale",.25,3,.01,tc.scale??1)}
+        ${slider(tc.id,"rotate","Rotate",-180,180,1,tc.rotate??0)}
+        ${slider(tc.id,"opacity","Opacity",0,1,.01,tc.opacity??1)}
+      </div>
+      <div class="box"><h4>Time / Audio</h4>
+        ${slider(tc.id,"speed","Speed",.25,4,.05,tc.speed??1)}
+        ${slider(tc.id,"volume","Volume",0,2,.05,tc.volume??1)}
+        ${slider(tc.id,"fadeIn","Fade In",0,3,.05,tc.fadeIn??0)}
+        ${slider(tc.id,"fadeOut","Fade Out",0,3,.05,tc.fadeOut??0)}
+      </div>
+      <div class="box"><h4>Color</h4>
+        ${slider(tc.id,"brightness","Bright",-.3,.3,.01,tc.brightness??0)}
+        ${slider(tc.id,"contrast","Contrast",.4,2,.01,tc.contrast??1)}
+        ${slider(tc.id,"saturation","Sat",0,2,.01,tc.saturation??1)}
+      </div>
+      <div class="box"><h4>Transition / Caption</h4>
+        <div class="field"><label>Trans</label>
+          <select onchange="api('update_clip','${tc.id}',{transition:this.value})">
+            ${["None","Fade","Wipe","Dissolve"].map(t=>`<option ${tc.transition===t?"selected":""}>${t}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field"><label>Caption</label>
+          <textarea onchange="api('update_clip','${tc.id}',{caption:this.value})">${esc(tc.caption||"")}</textarea>
+        </div>
+      </div>
+      <div class="box"><h4>Production</h4><div class="prod">
+        <button onclick="api('autoshot')">AutoShot</button>
+        <button onclick="api('beat_sync')">Beat Sync</button>
+        <button onclick="api('action_pulse')">Action Pulse</button>
+        <button onclick="api('stabilize_selected')">Stabilize</button>
+        <button onclick="api('upscale_selected',2)">Upscale 2x</button>
+        <button onclick="api('hdr_master')">HDR Master</button>
+        <button onclick="api('generate_captions')">Captions</button>
+        <button onclick="api('enhance_selected')">Enhance</button>
+        <button onclick="api('reverse_selected')">Reverse</button>
+        <button onclick="api('detach_audio')">Detach A</button>
+      </div></div>`;
+  } else if(mc){
+    box.innerHTML=`<div class="box"><h4>Media Asset</h4>
+      <div class="kv">Name <b>${esc(mc.name)}</b></div>
+      <div class="kv">Duration <b>${fmt(mc.duration)}</b></div>
+      <div class="kv">Size <b>${mc.width||"-"}x${mc.height||"-"}</b></div>
+      <div class="kv">Codec <b>${mc.codec||"-"}</b></div>
+      <div class="kv">FPS <b>${mc.fps||"-"}</b></div></div>
+      <div class="box"><h4>Production</h4><div class="prod">
+        <button onclick="api('add_to_timeline','${mc.id}')">Add to Timeline</button>
+        <button onclick="api('autoshot')">AutoShot</button>
+        <button onclick="api('beat_sync')">Beat Sync</button>
+        <button onclick="api('action_pulse')">Action Pulse</button>
+        <button onclick="api('stabilize_selected')">Stabilize</button>
+        <button onclick="api('upscale_selected',2)">Upscale 2x</button>
+        <button onclick="api('upscale_selected',4)">Upscale 4x</button>
+        <button onclick="api('enhance_selected')">Enhance</button>
+        <button onclick="api('hdr_master')">HDR</button>
+        <button onclick="api('generate_captions')">Captions</button>
+        <button onclick="api('smart_vault')">Vault</button>
+      </div></div>`;
+  } else {
+    box.innerHTML=`<p class="meta">Select a clip. Use AI Tools for AutoShot, mashup, HDR, stabilize, captions, upscale.</p>
+      <div class="box"><h4>Recent</h4>${(state.recent||[]).map(r=>`<button class="btn" style="width:100%;margin:4px 0;text-align:left" onclick="api('open_project',${JSON.stringify(r.path)})">${esc(r.name)}</button>`).join("")||"<span class='meta'>None</span>"}</div>`;
+  }
+}
+function renderFilters(state){
+  const cats=["Original",...Array.from(new Set((state.models||[]).map(m=>m.category).filter(Boolean)))];
+  window._cat=window._cat||"Original";
+  document.getElementById("cats").innerHTML=cats.map(c=>`<button class="cat ${window._cat===c?"on":""}" onclick="window._cat='${c}';render(S)">${c}</button>`).join("");
+  const names=window._cat==="Original"?["Original"]:(state.models||[]).filter(m=>m.category===window._cat).map(m=>m.rebrandedName);
+  document.getElementById("pills").innerHTML=names.map(n=>`<button class="pill ${state.currentFilter===n?"on":""}" onclick="api('apply_filter',${JSON.stringify(n)})">${esc(n)}</button>`).join("");
+}
+function renderFilterMenu(state){
+  document.getElementById("filterMenu").innerHTML=(state.filters||["Original"]).slice(0,40).map(f=>`<button onclick="api('apply_filter',${JSON.stringify(f)})">${esc(f)}</button>`).join("");
+}
+function renderTimeline(state){
+  const tracks=[];
+  for(let i=0;i<state.videoTrackCount;i++) tracks.push({label:"V"+(i+1),i,audio:false});
+  for(let i=0;i<state.audioTrackCount;i++) tracks.push({label:"A"+(i+1),i:state.videoTrackCount+i,audio:true});
+  const total=Math.max(state.totalDuration,20);
+  const width=Math.max(900,40+total*pps);
+  document.getElementById("tracks").style.width=width+"px";
+  const ticks=[];
+  for(let s=0;s<=total;s+= (pps<16?5:1)) ticks.push(`<span style="position:absolute;left:${s*pps}px">${fmt(s).slice(0,-3)}</span>`);
+  document.getElementById("ruler").innerHTML=ticks.join("");
+  document.getElementById("tracks").innerHTML=tracks.map(t=>{
+    const clips=state.timeline.filter(c=>c.track===t.i).map(c=>{
+      const left=c.start*pps, w=Math.max(12,c.duration*pps);
+      const sel=(state.selectedTimelineIds||[]).includes(c.id)?"sel":"";
+      const mid=c.mediaId;
+      const media=state.clips.find(x=>x.id===mid)||{};
+      const wave=(waves[mid]||[]).map(v=>`<i style="height:${Math.max(2,v*12)}px"></i>`).join("");
+      const cut=state.tool==="cut"?"cutmode":"";
+      const frames=t.audio?"":filmstripHtml(media,c,w);
+      return `<div class="tclip ${sel} ${cut} ${t.audio?"audio":""}" style="left:${left}px;width:${w}px"
+        onclick="event.stopPropagation();clickTl('${c.id}',${c.start},${c.duration},event)"
+        onmousemove="moveRazor(event,this)"
+        onmousedown="beginDrag(event,'${c.id}',${c.start},${c.track},${c.duration},${c.sourceIn||0})">
+        <div class="handle l" data-edge="l"></div>
+        <div class="strip">${frames}</div>
+        <span>${esc(c.name)}${c.caption?" · CC":""}${c.filter&&c.filter!=="Original"?" · "+esc(c.filter):""}</span>
+        <div class="wave">${wave}</div>
+        <div class="razor"></div>
+        <div class="handle r" data-edge="r"></div>
+      </div>`;
+    }).join("");
+    return `<div class="track ${t.audio?"audio":""}" data-track="${t.i}" ondragover="event.preventDefault()" ondrop="dropOnTrack(event,${t.i})"><div class="tlabel">${t.label}</div>${clips}</div>`;
+  }).join("");
+  document.getElementById("playhead").style.left=(40+state.currentTime*pps)+"px";
+  (state.markers||[]).forEach(m=>{
+    const d=document.createElement("div"); d.className="marker"; d.style.left=(40+m.time*pps)+"px";
+    document.getElementById("tracks").appendChild(d);
+  });
+  state.clips.forEach(c=>{ if(!waves[c.id]) loadWave(c.id); });
+}
+async function loadWave(id){
+  try{const r=await fetch("/wave/"+id); if(!r.ok) return; waves[id]=await r.json(); if(S) renderTimeline(S);}catch(e){}
+}
+function renderPreview(state){
+  const v=document.getElementById("video");
+  const still=document.getElementById("still");
+  const empty=document.getElementById("empty");
+  const cap=document.getElementById("cap");
+  const p=state.preview;
+  if(!p){
+    still.style.display="none";
+    empty.style.display="block";
+    cap.hidden=true;
+    return;
+  }
+  empty.style.display="none";
+  still.style.display="block";
+  still.style.filter=p.css||"none";
+  v.style.filter=p.css||"none";
+  const poster=p.still||"";
+  if(poster && still.dataset.src!==poster){
+    still.dataset.src=poster;
+    still.src=poster;
+    v.setAttribute("poster", poster);
+  }
+  const want=p.playable ? p.url : "";
+  if(want && want!==lastPreview){
+    lastPreview=want;
+    v.onerror=()=>{ lastPreview=""; };
+    v.onloadedmetadata=()=>{
+      try{ if(!playing) v.currentTime=p.offset||0; }catch(e){}
+    };
+    v.src=want;
+    v.load();
+  } else if(want && !playing && Number.isFinite(v.duration) && Math.abs((v.currentTime||0)-(p.offset||0))>0.4){
+    try{v.currentTime=p.offset||0;}catch(e){}
+  }
+  const tid=(state.selectedTimelineIds||[])[0];
+  const tc=state.timeline.find(c=>c.id===tid);
+  if(tc&&tc.caption){cap.hidden=false;cap.textContent=tc.caption;} else cap.hidden=true;
+}
+function renderHist(state){
+  const el=document.getElementById("hist");
+  el.classList.toggle("on",!!state.showHistory);
+  el.innerHTML=`<b>Edit History</b>`+(state.history||[]).map(h=>`<p>${esc(h)}</p>`).join("");
+}
+function filmstripHtml(media, clip, widthPx){
+  const count=Number(media.frameCount||0);
+  const interval=Number(media.frameInterval||1)||1;
+  if(!count){
+    return `<img src="/thumb/${media.id||clip.mediaId}.jpg" alt="">`;
+  }
+  const tiles=Math.max(1, Math.ceil(widthPx/72));
+  const srcIn=Number(clip.sourceIn||0);
+  const dur=Number(clip.duration||1);
+  let html="";
+  for(let i=0;i<tiles;i++){
+    const t=srcIn + (i+0.5)*dur/tiles;
+    let idx=Math.floor(t/interval)+1;
+    idx=Math.max(1, Math.min(count, idx));
+    const name=String(idx).padStart(4,"0")+".jpg";
+    html+=`<img src="/frame/${media.id}/${name}" alt="">`;
+  }
+  return html;
+}
+function moveRazor(ev, el){
+  const razor=el.querySelector(".razor");
+  if(!razor) return;
+  const x=ev.clientX-el.getBoundingClientRect().left;
+  razor.style.left=x+"px";
+}
+function clickTl(id,start,duration,ev){
+  const x=ev.clientX-ev.currentTarget.getBoundingClientRect().left;
+  const t=start + Math.max(0, Math.min(duration, x/pps));
+  if(S&&S.tool==="cut"){ api("split_at", t); return; }
+  api("set_time", t);
+  api("select_timeline",id,ev.shiftKey);
+}
+function beginDrag(ev,id,start,track,duration,sourceIn){
+  if(S&&S.tool==="cut") return;
+  if(ev.target.classList.contains("handle")===false && ev.detail>1) return;
+  const edge=ev.target.dataset.edge; const ox=ev.clientX; let last={start,duration,sourceIn,track};
+  const move=e=>{
+    const dt=(e.clientX-ox)/pps;
+    if(edge==="l") last={start:start+dt,duration:duration-dt,sourceIn:sourceIn+dt,track};
+    else if(edge==="r") last={start,duration:duration+dt,sourceIn,track};
+    else {
+      let next=track;
+      document.querySelectorAll(".track").forEach(el=>{
+        const r=el.getBoundingClientRect();
+        if(e.clientY>=r.top && e.clientY<=r.bottom) next=Number(el.dataset.track);
+      });
+      last={start:start+dt,duration,sourceIn,track:next};
+    }
+  };
+  const up=()=>{window.removeEventListener("mousemove",move);window.removeEventListener("mouseup",up);
+    if(Math.abs((last.start-start))<0.02 && last.duration===duration && last.track===track && !edge) return;
+    if(edge==="l"||edge==="r") api("trim_clip",id,last.start,last.duration,last.sourceIn); else api("move_clip",id,last.start,last.track);};
+  window.addEventListener("mousemove",move); window.addEventListener("mouseup",up);
+}
+function dropOnTrack(ev,track){ev.preventDefault();const id=ev.dataTransfer.getData("clip"); if(id) api("add_to_timeline",id,Math.max(0,ev.offsetX/pps),track);}
+function seekFromTimeline(ev){api("set_time",Math.max(0,(ev.currentTarget.scrollLeft+ev.offsetX-40)/pps));}
+function seekBy(d){api("set_time",(S?S.currentTime:0)+d);}
+function togglePlay(){const v=document.getElementById("video"); if(v.paused){v.play();playing=true;document.getElementById("playBtn").textContent="Pause";}else{v.pause();playing=false;document.getElementById("playBtn").textContent="Play";}}
+function sendAI(ev){ev.preventDefault();const el=document.getElementById("aiInput");const t=el.value.trim();if(!t)return false;el.value="";api("ai_edit",t);return false;}
+function openExport(){document.getElementById("overlay").classList.add("on");}
+function closeExport(){document.getElementById("overlay").classList.remove("on");}
+function applyPreset(){const [r,f]=document.getElementById("preset").value.split("|");document.getElementById("res").value=r;document.getElementById("fps").value=f;}
+function startExport(){api("export_project",document.getElementById("res").value,Number(document.getElementById("fps").value),document.getElementById("cont").value,true);}
+window.addEventListener("keydown",e=>{
+  if(!S) return;
+  const tag=(e.target.tagName||"").toLowerCase();
+  if(tag==="input"||tag==="textarea"||tag==="select") return;
+  if(e.code==="Space"){e.preventDefault();togglePlay();}
+  if(e.key==="b"||e.key==="B") api("split_at_playhead");
+  if(e.key==="v"||e.key==="V") api("set_tool","select");
+  if(e.key==="c"&&e.shiftKey) api("set_tool","cut");
+  if(e.key==="Delete"||e.key==="Backspace") api("delete_selected");
+  if(e.key==="i"||e.key==="I") api("mark_in_point");
+  if(e.key==="o"||e.key==="O") api("mark_out_point");
+  if(e.key==="m"||e.key==="M") api("add_marker");
+  if(e.key==="="||e.key==="+") api("zoom_in");
+  if(e.key==="-") api("zoom_out");
+  if(e.ctrlKey&&e.key==="z") api("undo");
+  if(e.ctrlKey&&e.key==="y") api("redo");
+  if(e.ctrlKey&&e.key==="c") api("copy_selected");
+  if(e.ctrlKey&&e.key==="v") api("paste_clips");
+  if(e.ctrlKey&&e.key==="a"){e.preventDefault();api("select_all_timeline");}
+  if(e.ctrlKey&&e.key==="s"){e.preventDefault();api("save_project");}
+  if(e.ctrlKey&&e.key==="e"){e.preventDefault();openExport();}
+  if(e.ctrlKey&&e.key==="i"){e.preventDefault();api("import_media");}
+  if(e.ctrlKey&&e.key==="n"){e.preventDefault();api("new_project");}
+  if(e.ctrlKey&&e.key==="o"){e.preventDefault();api("open_project");}
+  if(e.key==="ArrowLeft") seekBy(e.shiftKey?-30:-5);
+  if(e.key==="ArrowRight") seekBy(e.shiftKey?30:5);
+});
+async function boot(){
+  hideSplash();
+  try{
+    await waitApi();
+    render(await window.pywebview.api.get_state());
+  }catch(err){
+    hideSplash();
+  }
+  setInterval(async()=>{
+    if(!window.pywebview || !window.pywebview.api) return;
+    try{
+      const next=await window.pywebview.api.poll();
+      const previewChanged=S && next.previewUrl && next.previewUrl!==lastPreview;
+      if(next.isProcessing||(S&&S.isProcessing&&!next.isProcessing)||previewChanged) render(await window.pywebview.api.get_state());
+      else if(S){
+        S.keOnline=next.keOnline; S.keModel=next.keModel; S.aiStatus=next.aiStatus;
+        document.getElementById("status").textContent=next.aiStatus||"Ready";
+      }
+    }catch(e){}
+  },2500);
+}
+window.addEventListener("pywebviewready", boot);
+window.addEventListener("DOMContentLoaded", ()=>setTimeout(hideSplash, 700));
+if(document.readyState!=="loading") setTimeout(hideSplash, 700);
+</script>
+</body>
+</html>

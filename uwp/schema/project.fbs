@@ -1,0 +1,91 @@
+// LSJ Video Elite — FlatBuffers Binary Project Schema (.lsjb)
+// Digital Architecture by LSJ Systems TM // Sovereign Protocol IOPQ-08
+namespace LSJ.VideoElite.Schema;
+
+enum TrackType : byte {
+    Video = 0,
+    Audio = 1,
+    Overlay = 2,
+    Subtitle = 3
+}
+
+enum VetoStatus : byte {
+    Clear = 0,
+    Vetoed = 1,
+    Verified = 2,
+    Indeterminate = 3
+}
+
+table FilterParameter {
+    name: string;
+    float_val: float;
+    string_val: string;
+    is_boolean: bool;
+    bool_val: bool;
+}
+
+table SSKMetadata {
+    model_name: string;
+    veto_status: VetoStatus;
+    confidence: float;
+    demographic_gate_passed: bool;
+    perceptual_hash: string;
+    merkle_root: string;
+    thought_transcript: [string];
+}
+
+table TimelineClip {
+    id: string;
+    asset_path: string;
+    name: string;
+    track_index: int;
+    start_seconds: double;
+    duration_seconds: double;
+    source_in_seconds: double;
+    speed: float = 1.0;
+    volume: float = 1.0;
+    filter_name: string;
+    filter_parameters: [FilterParameter];
+    ssk_meta: SSKMetadata;
+}
+
+table TimelineTrack {
+    index: int;
+    name: string;
+    type: TrackType;
+    muted: bool = false;
+    locked: bool = false;
+    clips: [TimelineClip];
+}
+
+table MediaAsset {
+    id: string;
+    file_path: string;
+    file_name: string;
+    duration_seconds: double;
+    width: int;
+    height: int;
+    fps: float;
+    codec: string;
+    is_audio: bool;
+    sha256_hash: string;
+}
+
+table Project {
+    format_version: int = 1;
+    project_id: string;
+    project_name: string;
+    created_at_utc: long;
+    modified_at_utc: long;
+    target_width: int = 1920;
+    target_height: int = 1080;
+    target_fps: float = 30.0;
+    media_pool: [MediaAsset];
+    tracks: [TimelineTrack];
+    active_encoder: string;
+    global_ssk_log: [string];
+}
+
+root_type Project;
+file_identifier "LSJB";
+file_extension "lsjb";
