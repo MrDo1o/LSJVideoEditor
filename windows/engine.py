@@ -590,9 +590,10 @@ class SovereignWhisperASREngine:
             self.model = AutoModelForSpeechSeq2Seq.from_pretrained(
                 self.model_id,
                 torch_dtype=torch_dtype,
-                low_cpu_mem_usage=True
+                low_cpu_mem_usage=True,
+                local_files_only=True
             ).to(self.device)
-            self.processor = AutoProcessor.from_pretrained(self.model_id)
+            self.processor = AutoProcessor.from_pretrained(self.model_id, local_files_only=True)
 
             self.pipeline = pipeline(
                 "automatic-speech-recognition",
