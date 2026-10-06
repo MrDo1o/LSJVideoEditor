@@ -9,6 +9,7 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
