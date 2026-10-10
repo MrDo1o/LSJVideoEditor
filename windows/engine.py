@@ -535,6 +535,7 @@ def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str
                 "-vf", vf, "-af", af,
                 *maps,
                 *vopts.split(), *aopts.split(),
+                "-t", f"{dur:.3f}",
                 "-shortest", "-movflags", "+faststart",
                 str(piece),
             ])
