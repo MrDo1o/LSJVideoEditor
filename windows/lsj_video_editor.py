@@ -355,6 +355,7 @@ class EditorAPI:
         self.ui_dirty = False
         self.last_ke_reply = ""
         self.ke_log: list[str] = []
+        self.pending_voice_directives: list[dict] = []
         self._load_cached_ssk_log()
         threading.Thread(target=self._autosave_loop, daemon=True).start()
         threading.Thread(target=self._ke_loop, daemon=True).start()
@@ -365,6 +366,7 @@ class EditorAPI:
         self.project_name = name
         self.clips: list[dict] = []
         self.timeline: list[dict] = []
+        self.pending_voice_directives = []
 
     def _load_cached_ssk_log(self):
         """Restore prior session thoughts from on-disk thought vault."""
@@ -379,11 +381,22 @@ class EditorAPI:
         except Exception:
             pass
 
-    def log_thought(self, entry: str, title: str = "REASONING"):
-        """Log structured reasoning token to in-memory console and persistent on-disk vault."""
+    @staticmethod
+    def _sanitize_log_entry(text: str) -> str:
+        """Sanitize sensitive tokens, keys, and credentials from activity/event logs."""
+        if not isinstance(text, str):
+            text = str(text)
+        text = re.sub(r'(?i)(api[_-]?key|bearer|token|secret|password)[\s:=]+([a-zA-Z0-9_\-\.]{8,})', r'\1=***REDACTED***', text)
+        text = re.sub(r'ghp_[a-zA-Z0-9]{20,}', '***REDACTED_GH_TOKEN***', text)
+        text = re.sub(r'github_pat_[a-zA-Z0-9_]{20,}', '***REDACTED_PAT***', text)
+        return text
+
+    def log_thought(self, entry: str, title: str = "EVENT"):
+        """Log structured activity/event token to in-memory console and persistent on-disk vault."""
+        clean_entry = self._sanitize_log_entry(entry)
         now = time.strftime("%H:%M:%S")
-        formatted = f"[{now}] [SSK {title.upper()}]\n{entry}\n---\n"
-        self.ke_log.insert(0, f"[{now}] [SSK {title.upper()}] {entry}")
+        formatted = f"[{now}] [SSK {title.upper()}]\n{clean_entry}\n---\n"
+        self.ke_log.insert(0, f"[{now}] [SSK {title.upper()}] {clean_entry}")
         self.ke_log = self.ke_log[:200]
         self.ui_dirty = True
         try:
@@ -747,6 +760,7 @@ class EditorAPI:
             "binKind": self.bin_kind,
             "keOnline": self._ke_ok,
             "keModel": self._cached_ke_model or KE_ENGINE["model"],
+            "pendingVoiceDirectives": list(self.pending_voice_directives),
         }
 
     def poll(self):
@@ -1799,10 +1813,17 @@ class EditorAPI:
 
             def work_media():
                 caps = nle.generate_captions(self.ffmpeg, media["path"])
+                if not caps:
+                    self.ai_status = "Transcription unavailable (ASR model missing or failed)"
+                    self.log_thought(f"Transcription unavailable for '{media.get('name')}': ASR model missing or offline execution failed.", "ASR_FAILURE")
+                    self.is_processing = False
+                    self.ui_dirty = True
+                    return
+
                 self._snapshot("Captions")
                 self.log_thought(f"Transcribed {len(caps)} segments for '{media.get('name')}'. Zero-cloud Whisper verified.", "ASR")
                 cursor = max((c["start"] + c["duration"] for c in self.timeline), default=0.0)
-                dispatched = 0
+                detected = []
                 for cap in caps:
                     item = self._new_timeline_item(media, cursor, 0)
                     item["sourceIn"] = cap["start"]
@@ -1811,13 +1832,17 @@ class EditorAPI:
                     self.timeline.append(item)
                     cursor += item["duration"]
 
+                    # Separate captioning from edit authorization:
+                    # Detect directives but store in pending for user preview/confirmation
                     directives = parse_voice_directives(cap["text"], cap["start"])
-                    for d in directives:
-                        if self.dispatch_voice_action(d):
-                            dispatched += 1
+                    detected.extend(directives)
 
-                status_extra = f" ({dispatched} voice directives ran)" if dispatched else ""
-                self.ai_status = f"Captions: {len(caps)}{status_extra}"
+                self.pending_voice_directives = detected
+                if detected:
+                    self.log_thought(f"Detected {len(detected)} potential directives in speech: '{detected[0]['detected_phrase']}'. Stored in preview/pending. Confirm to apply.", "PREVIEW_DIRECTIVE")
+                    self.ai_status = f"Captions: {len(caps)} (Detected: '{detected[0]['detected_phrase']}' - confirm to apply)"
+                else:
+                    self.ai_status = f"Captions: {len(caps)}"
                 self.is_processing = False
                 self.ui_dirty = True
             self._job(work_media)
@@ -1830,21 +1855,54 @@ class EditorAPI:
 
         def work():
             caps = nle.generate_captions(self.ffmpeg, media["path"])
+            if not caps:
+                self.ai_status = "Transcription unavailable (ASR model missing or failed)"
+                self.log_thought(f"Transcription unavailable for '{targets[0].get('name')}': ASR model missing or offline execution failed.", "ASR_FAILURE")
+                self.is_processing = False
+                self.ui_dirty = True
+                return
+
+            self._snapshot("Captions on Clip")
             self.log_thought(f"Transcribed {len(caps)} segments for selected clip '{targets[0].get('name')}'.", "ASR")
             text = " ".join(c["text"] for c in caps[:4])
-            dispatched = 0
+            detected = []
             for cap in caps:
-                directives = parse_voice_directives(cap["text"], cap["start"])
-                for d in directives:
-                    if self.dispatch_voice_action(d):
-                        dispatched += 1
+                detected.extend(parse_voice_directives(cap["text"], cap["start"]))
+            self.pending_voice_directives = detected
             for clip in targets:
                 clip["caption"] = text[:80]
-            status_extra = f" ({dispatched} voice directives ran)" if dispatched else ""
-            self.ai_status = f"Captions applied{status_extra}"
+            if detected:
+                self.ai_status = f"Captions applied (Detected: '{detected[0]['detected_phrase']}' - confirm to apply)"
+            else:
+                self.ai_status = "Captions applied"
             self.is_processing = False
             self.ui_dirty = True
         self._job(work)
+        return self.get_state()
+
+    def apply_pending_directives(self):
+        """Explicitly authorize and execute detected voice directives with snapshot and undo."""
+        if not getattr(self, "pending_voice_directives", None):
+            self.ai_status = "No pending directives to apply"
+            return self.get_state()
+        self._snapshot("Apply Voice Directives")
+        applied = 0
+        for d in self.pending_voice_directives:
+            if self.dispatch_voice_action(d):
+                applied += 1
+        self.pending_voice_directives = []
+        self.ai_status = f"Applied {applied} voice directives"
+        self.log_thought(f"User authorized and executed {applied} pending directives.", "CONFIRMED_DIRECTIVE")
+        self.ui_dirty = True
+        return self.get_state()
+
+    def dismiss_pending_directives(self):
+        """Dismiss pending voice directives without modifying timeline."""
+        count = len(getattr(self, "pending_voice_directives", []))
+        self.pending_voice_directives = []
+        self.ai_status = "Pending directives dismissed"
+        self.log_thought(f"Dismissed {count} pending voice directives without execution.", "DISMISSED")
+        self.ui_dirty = True
         return self.get_state()
 
     def mashup(self, seconds=180):

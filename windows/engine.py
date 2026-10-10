@@ -426,24 +426,9 @@ def generate_captions(ffmpeg: str, src: str) -> list[dict]:
         if caps:
             return caps
 
-    # 3. Tertiary fallback: silence detection
-    _, text = run([
-        ffmpeg, "-i", src, "-af", "silencedetect=n=-30dB:d=0.4", "-f", "null", "-",
-    ], timeout=180)
-    silences = [(float(a), float(b)) for a, b in re.findall(
-        r"silence_start: (\d+\.?\d*).*?silence_end: (\d+\.?\d*)", text, re.S
-    )]
-    caps = []
-    cursor = 0.0
-    idx = 1
-    for start, end in silences:
-        if start - cursor >= 0.8:
-            caps.append({"start": cursor, "end": start, "text": f"LINE {idx}"})
-            idx += 1
-        cursor = end
-    if not caps:
-        caps = [{"start": 0.0, "end": 3.0, "text": "LSJ AUTO CAPTION"}]
-    return caps
+    # Fail closed: Do not fabricate captions from silence detection.
+    # Silence detection identifies acoustic pauses, not speech transcription.
+    return []
 
 
 def build_mashup(clips: list[dict], target: float = 180.0) -> list[dict]:

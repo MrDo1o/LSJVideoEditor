@@ -188,7 +188,7 @@ class EditorApp:
         self._ke_expanded = False
         ke_hdr = tk.Frame(insp, bg=CARD)
         ke_hdr.pack(fill="x", padx=8, pady=(6, 2))
-        tk.Label(ke_hdr, text="SSK THOUGHT PROCESS", bg=CARD, fg=CYAN, font=("Segoe UI", 8, "bold")).pack(side="left")
+        tk.Label(ke_hdr, text="SSK ACTIVITY & EVENT LOG", bg=CARD, fg=CYAN, font=("Segoe UI", 8, "bold")).pack(side="left")
         self.expand_btn = ttk.Button(ke_hdr, text="⛶ Expand", width=8, command=self._toggle_expand_ke)
         self.expand_btn.pack(side="right")
         self.popout_btn = ttk.Button(ke_hdr, text="🗗 Pop-out", width=8, command=self._popout_ke)
@@ -266,6 +266,10 @@ class EditorApp:
         bar.pack(fill="x", side="bottom")
         self.status = tk.Label(bar, text="Ready", bg="#080c16", fg=MUTED, anchor="w")
         self.status.pack(side="left", padx=10)
+        self.pending_frame = tk.Frame(bar, bg="#080c16")
+        self.pending_frame.pack(side="left", padx=10)
+        self.confirm_btn = ttk.Button(self.pending_frame, text="Confirm Directive", style="Cyan.TButton", command=lambda: self._do("apply_pending_directives"))
+        self.dismiss_btn = ttk.Button(self.pending_frame, text="Dismiss", command=lambda: self._do("dismiss_pending_directives"))
         self.ffstat = tk.Label(bar, text="", bg="#080c16", fg=CYAN, anchor="e")
         self.ffstat.pack(side="right", padx=10)
 
@@ -333,6 +337,13 @@ class EditorApp:
     def refresh(self):
         self.proj_var.set(self.api.project_name)
         self.status.configure(text=self.api.ai_status or "Ready")
+        has_pending = bool(getattr(self.api, "pending_voice_directives", []))
+        if has_pending:
+            self.confirm_btn.pack(side="left", padx=2)
+            self.dismiss_btn.pack(side="left", padx=2)
+        else:
+            self.confirm_btn.pack_forget()
+            self.dismiss_btn.pack_forget()
         ke = "KE online" if self.api._ke_ok else "KE offline"
         ff = "FFmpeg" if self.api.ffmpeg else "FFmpeg missing"
         self.ffstat.configure(text=f"{ke}  ·  {ff}  ·  {len(self.api.models)} models")
@@ -418,7 +429,7 @@ class EditorApp:
             self._popout_win.lift()
             return
         win = tk.Toplevel(self.root)
-        win.title("SSK Thought Process Console — Sovereign Vault")
+        win.title("SSK Activity & Event Log Console — Sovereign Vault")
         win.geometry("920x680")
         win.configure(bg=CARD)
         self._popout_win = win
@@ -446,7 +457,7 @@ class EditorApp:
             entries = self.api.ke_log
             if query:
                 entries = [e for e in entries if query in e.lower()]
-            text = "\n\n".join(entries) if entries else "No matching thoughts found."
+            text = "\n\n".join(entries) if entries else "No matching log entries found."
             box.configure(state="normal")
             box.delete("1.0", "end")
             box.insert("1.0", text)
