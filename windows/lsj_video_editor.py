@@ -1384,7 +1384,8 @@ class EditorAPI:
 
     def refresh_ffmpeg(self):
         self.ffmpeg, self.ffprobe = resolve_ffmpeg()
-        self.ai_status = "FFmpeg ready" if self.ffmpeg else "FFmpeg missing"
+        if self.ai_status in ("Ready", ""):
+            self.ai_status = "FFmpeg ready" if self.ffmpeg else "FFmpeg missing"
         return self.get_state()
 
     def _new_timeline_item(self, media, start, track):
