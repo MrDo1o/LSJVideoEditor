@@ -476,11 +476,11 @@ def main():
     print(f"Delivery Specs: 1920x1080 @ 60fps, H.264 High / AAC Stereo ({fmt_dur:.2f}s)")
     print("\n[WORKING FEATURES]")
     for f in working_features:
-        print(f"  ✓ {f}")
+        print(f"  [OK] {f}")
 
     print("\n[FLAGGED METADATA-ONLY / DEFECTIVE CONTROLS]")
     for b in broken_or_metadata_only:
-        print(f"  ✗ {b['control']}: {b['issue']}")
+        print(f"  [METADATA-ONLY] {b['control']}: {b['issue']}")
 
     # Save summary report to JSON
     report_path = out_dir / "EDITING_SESSION_REPORT.json"
