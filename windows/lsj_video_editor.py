@@ -1310,7 +1310,7 @@ class EditorAPI:
         self.is_processing = False
         self.ui_dirty = True
 
-    def export_project(self, resolution=None, fps=None, container="mov", mastering=True):
+    def export_project(self, resolution=None, fps=None, container="mov", mastering=True, dest=None):
         if not self.timeline:
             self.ai_status = "Timeline is empty"
             return self.get_state()
@@ -1325,27 +1325,27 @@ class EditorAPI:
         if container in {"qt", "quicktime"}:
             container = "mov"
         default_name = f"{self.project_name}_export.{container}"
-        dest = ""
-        try:
-            import tkinter as tk
-            from tkinter import filedialog
-            root = tk.Tk()
-            root.withdraw()
-            root.wm_attributes("-topmost", True)
-            dest = filedialog.asksaveasfilename(
-                title="Export MOV",
-                initialdir=str(Path.home() / "Videos"),
-                initialfile=default_name,
-                defaultextension=".mov",
-                filetypes=[
-                    ("QuickTime MOV", "*.mov"),
-                    ("MPEG-4", "*.mp4"),
-                    ("All files", "*.*"),
-                ],
-            )
-            root.destroy()
-        except Exception:
-            dest = ""
+        if not dest:
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk()
+                root.withdraw()
+                root.wm_attributes("-topmost", True)
+                dest = filedialog.asksaveasfilename(
+                    title="Export MOV",
+                    initialdir=str(Path.home() / "Videos"),
+                    initialfile=default_name,
+                    defaultextension=".mov",
+                    filetypes=[
+                        ("QuickTime MOV", "*.mov"),
+                        ("MPEG-4", "*.mp4"),
+                        ("All files", "*.*"),
+                    ],
+                )
+                root.destroy()
+            except Exception:
+                dest = ""
         if not dest:
             self.ai_status = "Export canceled"
             return self.get_state()
@@ -1533,6 +1533,8 @@ class EditorAPI:
             freeze["duration"] = 2.0
             freeze["sourceIn"] = clip.get("sourceIn", 0) + clip["duration"] - 0.04
             freeze["name"] = f"{clip['name']} [HOLD]"
+            freeze["is_freeze"] = True
+            freeze["volume"] = 0.0
             self.timeline.append(freeze)
         return self.get_state()
 

@@ -117,6 +117,11 @@ def clip_vf(clip: dict, w: int, h: int, fps: int, mastering: bool) -> str:
         parts.append(f"rotate={rotate}*PI/180:fillcolor=black")
     if opacity < 1.0:
         parts.append(f"format=rgba,colorchannelmixer=aa={opacity:.3f}")
+    speed = float(clip.get("speed") or 1.0)
+    if speed != 1.0 and speed > 0:
+        parts.append(f"setpts={1.0 / speed:.4f}*PTS")
+    if clip.get("is_freeze"):
+        parts.append("loop=loop=-1:size=1:start=0")
     vf = filter_chain(clip.get("filter") or "Original")
     if vf:
         parts.append(vf)
@@ -525,8 +530,9 @@ def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str
                     maps = ["-map", "0:v:0", "-map", "1:a:0?"]
             else:
                 maps = ["-map", "0:v:0?", "-map", "0:a:0?"]
+            af = clip_af(clip) + ",aformat=sample_fmts=fltp:channel_layouts=stereo"
             cmd.extend([
-                "-vf", vf, "-af", "aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo",
+                "-vf", vf, "-af", af,
                 *maps,
                 *vopts.split(), *aopts.split(),
                 "-shortest", "-movflags", "+faststart",
