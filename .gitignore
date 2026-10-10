@@ -2,5 +2,6 @@ __pycache__/
 *.pyc
 wandb/
 scripts/*.mp4
+scripts/session_output/
 build/
 dist/
