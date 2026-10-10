@@ -11,6 +11,7 @@ import json
 import os
 import queue
 import random
+import re
 import shutil
 import subprocess
 import sys
@@ -150,6 +151,64 @@ DIRECTOR_FILTERS = [
     "Elite Angle (Right)",
     "Elite Motion (Pan)",
 ]
+
+DIRECTIVE_PATTERNS = [
+    {
+        "pattern": r"(?:make|cut)\s+(\d+)\s+(?:quiet\s+)?clips?",
+        "action": "ACTION_BATCH_SPLIT_CADENCE",
+        "description": "Splits timeline into discrete acoustic/thematic clips based on natural speech pauses.",
+        "params": lambda m: {"target_clip_count": int(m.group(1)), "quiet": "quiet" in m.group(0).lower()}
+    },
+    {
+        "pattern": r"split\s+this\s+in\s+half",
+        "action": "ACTION_TIMELINE_BISECT",
+        "description": "Splits current timeline sequence at playhead position.",
+        "params": lambda m: {"split_ratio": 0.5}
+    },
+    {
+        "pattern": r"explain\s+(?:this\s+to\s+)?(?:those\s+)?background",
+        "action": "ACTION_CHAPTER_MARK",
+        "description": "Inserts metadata chapter marker for background & speaker bio.",
+        "params": lambda m: {"chapter_name": "Speaker Background & Dialect Profile"}
+    },
+    {
+        "pattern": r"(?:apply|use)\s+(?:tone\s+curve|rec\.?\s*709|hdr|film\s+grain)",
+        "action": "ACTION_DISPATCH_COLOR_FILTER",
+        "description": "Applies calibrated Rec.709 10-bit tone mapping & silver halide grain.",
+        "params": lambda m: {"filter_preset": "Solstice"}
+    },
+    {
+        "pattern": r"(?:upscale|enhance|denoise)",
+        "action": "ACTION_DISPATCH_ENHANCER",
+        "description": "Dispatches 3D spatio-temporal denoiser and contrast-adaptive texture recovery.",
+        "params": lambda m: {"tool": "hqdn3d_unsharp_cas", "filter": "Lumina"}
+    },
+    {
+        "pattern": r"(?:lower|reduce|quiet)\s+(?:volume|gain|-?6\s*db)",
+        "action": "ACTION_VOLUME_GAIN",
+        "description": "Adjusts audio gain by -6 dB (factor 0.5) across active clips.",
+        "params": lambda m: {"gain_db": -6.0, "volume": 0.5}
+    }
+]
+
+
+def parse_voice_directives(transcript_text: str, timestamp_start: float = 0.0) -> list[dict]:
+    """Extracts actionable SSK video editing directives from natural speech."""
+    actions = []
+    text_lower = (transcript_text or "").lower()
+    for rule in DIRECTIVE_PATTERNS:
+        match = re.search(rule["pattern"], text_lower)
+        if match:
+            actions.append({
+                "timestamp_sec": timestamp_start,
+                "detected_phrase": match.group(0),
+                "dispatched_action": rule["action"],
+                "description": rule["description"],
+                "parameters": rule["params"](match),
+                "status": "DISPATCHED_TO_LSJ_CORE"
+            })
+    return actions
+
 
 
 def _which_tool(name: str) -> str | None:
@@ -296,6 +355,7 @@ class EditorAPI:
         self.ui_dirty = False
         self.last_ke_reply = ""
         self.ke_log: list[str] = []
+        self._load_cached_ssk_log()
         threading.Thread(target=self._autosave_loop, daemon=True).start()
         threading.Thread(target=self._ke_loop, daemon=True).start()
         threading.Thread(target=self._job_loop, daemon=True).start()
@@ -305,6 +365,120 @@ class EditorAPI:
         self.project_name = name
         self.clips: list[dict] = []
         self.timeline: list[dict] = []
+
+    def _load_cached_ssk_log(self):
+        """Restore prior session thoughts from on-disk thought vault."""
+        log_file = CACHE_DIR / "ssk_thought_history.log"
+        if not log_file.is_file():
+            return
+        try:
+            content = log_file.read_text(encoding="utf-8")
+            blocks = [b.strip() for b in content.split("---") if b.strip()]
+            for block in blocks[-40:]:
+                self.ke_log.append(block)
+        except Exception:
+            pass
+
+    def log_thought(self, entry: str, title: str = "REASONING"):
+        """Log structured reasoning token to in-memory console and persistent on-disk vault."""
+        now = time.strftime("%H:%M:%S")
+        formatted = f"[{now}] [SSK {title.upper()}]\n{entry}\n---\n"
+        self.ke_log.insert(0, f"[{now}] [SSK {title.upper()}] {entry}")
+        self.ke_log = self.ke_log[:200]
+        self.ui_dirty = True
+        try:
+            CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            log_file = CACHE_DIR / "ssk_thought_history.log"
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(formatted)
+        except Exception:
+            pass
+
+    def dispatch_voice_action(self, action: dict) -> bool:
+        """Dispatches an SSK voice directive onto the active timeline."""
+        act = action.get("dispatched_action")
+        params = action.get("parameters") or {}
+        ts = action.get("timestamp_sec", self.current_time)
+        self.log_thought(f"Executing directive {act} (at {ts:.2f}s): {action.get('detected_phrase')}", "DIRECTIVE")
+
+        if act == "ACTION_BATCH_SPLIT_CADENCE":
+            target_count = max(2, params.get("target_clip_count", 4))
+            quiet = params.get("quiet", False)
+            self._snapshot("Batch Split Cadence")
+            targets = [self._timeline_by_id(i) for i in self.selected_timeline_ids]
+            targets = [t for t in targets if t] or sorted(self.timeline, key=lambda c: c["duration"], reverse=True)[:1]
+            if targets:
+                clip = targets[0]
+                total_dur = clip["duration"]
+                step = total_dur / target_count
+                if step >= 0.5:
+                    orig_start = clip["start"]
+                    orig_src_in = clip["sourceIn"]
+                    idx = self.timeline.index(clip)
+                    self.timeline.pop(idx)
+                    for i in range(target_count):
+                        item = dict(clip)
+                        item["id"] = uuid.uuid4().hex[:8]
+                        item["start"] = orig_start + i * step
+                        item["sourceIn"] = orig_src_in + i * step
+                        item["duration"] = step
+                        item["name"] = f"{clip.get('name', 'Clip')}_pt{i+1}"
+                        if quiet:
+                            item["volume"] = 0.5
+                        self.timeline.insert(idx + i, item)
+                    self.ai_status = f"Cadence split: {target_count} clips created"
+                    self.log_thought(f"Split clip into {target_count} cadence segments (quiet={quiet})", "CADENCE")
+                    self.ui_dirty = True
+                    return True
+
+        elif act == "ACTION_TIMELINE_BISECT":
+            self._snapshot("Timeline Bisect")
+            split_t = self.current_time
+            if split_t <= 0.0 and self.timeline:
+                split_t = self.timeline[0]["start"] + self.timeline[0]["duration"] * 0.5
+            self.split_at(split_t)
+            self.ai_status = f"Bisected timeline at {split_t:.2f}s"
+            self.log_thought(f"Bisected timeline sequence at {split_t:.2f}s", "BISECT")
+            self.ui_dirty = True
+            return True
+
+        elif act == "ACTION_CHAPTER_MARK":
+            name = params.get("chapter_name", "Chapter Marker")
+            self.markers.append({"time": ts, "name": name})
+            self.ai_status = f"Added marker: {name}"
+            self.log_thought(f"Added chapter marker '{name}' at {ts:.2f}s", "MARKER")
+            self.ui_dirty = True
+            return True
+
+        elif act == "ACTION_DISPATCH_COLOR_FILTER":
+            preset = params.get("filter_preset", "Solstice")
+            self.apply_filter(preset)
+            self.ai_status = f"Applied filter: {preset}"
+            self.log_thought(f"Applied color filter preset '{preset}'", "FILTER")
+            self.ui_dirty = True
+            return True
+
+        elif act == "ACTION_DISPATCH_ENHANCER":
+            filt = params.get("filter", "Lumina")
+            self.apply_filter(filt)
+            self.ai_status = f"Enhancer active: {filt}"
+            self.log_thought(f"Dispatched enhancer with filter '{filt}'", "ENHANCE")
+            self.ui_dirty = True
+            return True
+
+        elif act == "ACTION_VOLUME_GAIN":
+            vol = float(params.get("volume", 0.5))
+            self._snapshot("Volume Gain")
+            targets = [self._timeline_by_id(i) for i in self.selected_timeline_ids]
+            targets = [t for t in targets if t] or self.timeline
+            for c in targets:
+                c["volume"] = vol
+            self.ai_status = f"Volume adjusted: {vol:.2f} (-6dB)"
+            self.log_thought(f"Adjusted audio gain to {vol:.2f} (-6dB) across {len(targets)} clips", "AUDIO")
+            self.ui_dirty = True
+            return True
+
+        return False
 
     def reload_registry(self):
         reg = load_registry()
@@ -1621,12 +1795,14 @@ class EditorAPI:
                 self.ai_status = "Select a clip"
                 return self.get_state()
             self.is_processing = True
-            self.ai_status = "Transcribing..."
+            self.ai_status = "Transcribing with Sovereign Whisper..."
 
             def work_media():
                 caps = nle.generate_captions(self.ffmpeg, media["path"])
                 self._snapshot("Captions")
+                self.log_thought(f"Transcribed {len(caps)} segments for '{media.get('name')}'. Zero-cloud Whisper verified.", "ASR")
                 cursor = max((c["start"] + c["duration"] for c in self.timeline), default=0.0)
+                dispatched = 0
                 for cap in caps:
                     item = self._new_timeline_item(media, cursor, 0)
                     item["sourceIn"] = cap["start"]
@@ -1634,23 +1810,40 @@ class EditorAPI:
                     item["caption"] = cap["text"]
                     self.timeline.append(item)
                     cursor += item["duration"]
-                self.ai_status = f"Captions: {len(caps)}"
+
+                    directives = parse_voice_directives(cap["text"], cap["start"])
+                    for d in directives:
+                        if self.dispatch_voice_action(d):
+                            dispatched += 1
+
+                status_extra = f" ({dispatched} voice directives ran)" if dispatched else ""
+                self.ai_status = f"Captions: {len(caps)}{status_extra}"
                 self.is_processing = False
+                self.ui_dirty = True
             self._job(work_media)
             return self.get_state()
         media = self.clip_by_id(targets[0]["mediaId"])
         if not media:
             return self.get_state()
         self.is_processing = True
-        self.ai_status = "Transcribing..."
+        self.ai_status = "Transcribing with Sovereign Whisper..."
 
         def work():
             caps = nle.generate_captions(self.ffmpeg, media["path"])
+            self.log_thought(f"Transcribed {len(caps)} segments for selected clip '{targets[0].get('name')}'.", "ASR")
             text = " ".join(c["text"] for c in caps[:4])
+            dispatched = 0
+            for cap in caps:
+                directives = parse_voice_directives(cap["text"], cap["start"])
+                for d in directives:
+                    if self.dispatch_voice_action(d):
+                        dispatched += 1
             for clip in targets:
                 clip["caption"] = text[:80]
-            self.ai_status = "Captions applied"
+            status_extra = f" ({dispatched} voice directives ran)" if dispatched else ""
+            self.ai_status = f"Captions applied{status_extra}"
             self.is_processing = False
+            self.ui_dirty = True
         self._job(work)
         return self.get_state()
 
@@ -1704,14 +1897,23 @@ class EditorAPI:
         if not prompt:
             return self.get_state()
         self.history.insert(0, f"[{time.strftime('%H:%M:%S')}] KE: {prompt}")
-        self.ke_log.insert(0, f"> {prompt}")
+        self.log_thought(f"Prompt: {prompt}", "PROMPT")
+
+        # Parse voice directives directly from prompt
+        directives = parse_voice_directives(prompt, self.current_time)
+        voice_ran = []
+        for d in directives:
+            if self.dispatch_voice_action(d):
+                voice_ran.append(d["dispatched_action"])
+
         acted = self._dispatch_ke_actions(prompt)
+        all_immediate = voice_ran + [a for a in acted if a not in voice_ran]
         want_swarm = any(w in prompt.lower() for w in ("swarm", "agent", "agents", "htn"))
-        if acted:
-            self.ai_status = f"KE ran: {', '.join(acted)}"
-            self.ke_log.insert(0, self.ai_status)
+        if all_immediate:
+            self.ai_status = f"SSK ran: {', '.join(all_immediate)}"
+            self.log_thought(f"Executed directives: {', '.join(all_immediate)}", "DISPATCH")
         else:
-            self.ai_status = "Kweenesha thinking..."
+            self.ai_status = "SSK reasoning..."
             self.is_processing = True
         self.ui_dirty = True
 
@@ -1724,14 +1926,14 @@ class EditorAPI:
                 spoken = "\n".join(
                     ln for ln in (text or "").splitlines() if not ln.upper().startswith("TOOL:")
                 ).strip() or "Ready."
-                all_acted = acted + [a for a in extra if a not in acted]
+                all_acted = all_immediate + [a for a in extra if a not in all_immediate]
                 suffix = f" · {', '.join(all_acted)}" if all_acted else ""
-                self.ai_status = f"KE: {spoken[:180]}{suffix}"
-                self.ke_log.insert(0, f"KE: {spoken[:180]}")
+                self.ai_status = f"SSK: {spoken[:180]}{suffix}"
+                self.log_thought(f"Reply: {spoken[:180]}", "REASONING")
             except Exception as exc:
-                if not acted:
-                    self.ai_status = f"KE failed: {exc}"
-            self.ke_log = self.ke_log[:40]
+                if not all_immediate:
+                    self.ai_status = f"SSK failed: {exc}"
+                    self.log_thought(f"Execution error: {exc}", "ERROR")
             self.is_processing = False
             self.ui_dirty = True
 

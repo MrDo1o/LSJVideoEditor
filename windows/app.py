@@ -185,26 +185,38 @@ class EditorApp:
         self.insp = tk.Text(insp, bg="#0a101c", fg=INK, relief="flat", height=6, wrap="word",
                             insertbackground=INK)
         self.insp.pack(fill="x", padx=8)
-        tk.Label(insp, text="KWEENESHA", bg=CARD, fg=CYAN, font=("Segoe UI", 8, "bold")).pack(anchor="w", padx=10, pady=(6, 2))
-        self.ke_box = tk.Text(insp, bg="#0a101c", fg=CYAN, relief="flat", height=5, wrap="word")
+        self._ke_expanded = False
+        ke_hdr = tk.Frame(insp, bg=CARD)
+        ke_hdr.pack(fill="x", padx=8, pady=(6, 2))
+        tk.Label(ke_hdr, text="SSK THOUGHT PROCESS", bg=CARD, fg=CYAN, font=("Segoe UI", 8, "bold")).pack(side="left")
+        self.expand_btn = ttk.Button(ke_hdr, text="⛶ Expand", width=8, command=self._toggle_expand_ke)
+        self.expand_btn.pack(side="right")
+        self.popout_btn = ttk.Button(ke_hdr, text="🗗 Pop-out", width=8, command=self._popout_ke)
+        self.popout_btn.pack(side="right", padx=2)
+
+        self.ke_box = tk.Text(insp, bg="#0a101c", fg=CYAN, relief="flat", height=5, wrap="word", font=("Consolas", 9))
         self.ke_box.pack(fill="x", padx=8)
-        tk.Label(insp, text="ELITE MODELS", bg=CARD, fg=MUTED, font=("Segoe UI", 8, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
-        cat_row = tk.Frame(insp, bg=CARD)
+
+        self.models_container = tk.Frame(insp, bg=CARD)
+        self.models_container.pack(fill="both", expand=True)
+
+        tk.Label(self.models_container, text="ELITE MODELS", bg=CARD, fg=MUTED, font=("Segoe UI", 8, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
+        cat_row = tk.Frame(self.models_container, bg=CARD)
         cat_row.pack(fill="x", padx=8)
         self.cat_var = tk.StringVar(value="All")
         cats = ["All"] + sorted({m.get("category") or "Other" for m in self.api.models})
         self.cat_box = ttk.Combobox(cat_row, textvariable=self.cat_var, values=cats, state="readonly", width=18)
         self.cat_box.pack(side="left", fill="x", expand=True)
         self.cat_box.bind("<<ComboboxSelected>>", lambda e: self._fill_models())
-        self.model_list = tk.Listbox(insp, bg="#0a101c", fg=INK, selectbackground="#163047",
+        self.model_list = tk.Listbox(self.models_container, bg="#0a101c", fg=INK, selectbackground="#163047",
                                      selectforeground=CYAN, relief="flat", height=8, highlightthickness=0)
         self.model_list.pack(fill="both", expand=True, padx=8, pady=4)
         self.model_list.bind("<<ListboxSelect>>", self._on_model)
-        self.param_frame = tk.Frame(insp, bg=CARD)
+        self.param_frame = tk.Frame(self.models_container, bg=CARD)
         self.param_frame.pack(fill="x", padx=8, pady=(0, 6))
         self._param_scales = []
         self._fill_models()
-        tools = tk.Frame(insp, bg=CARD)
+        tools = tk.Frame(self.models_container, bg=CARD)
         tools.pack(fill="x", padx=8, pady=(0, 8))
         for i, (lab, fn) in enumerate([
             ("AutoShot", "autoshot"), ("Beat", "beat_sync"),
@@ -370,13 +382,78 @@ class EditorApp:
         self.insp.insert("1.0", "\n".join(lines))
         self.insp.configure(state="disabled")
         if hasattr(self, "ke_box"):
-            self.ke_box.configure(state="normal")
-            self.ke_box.delete("1.0", "end")
-            log = "\n".join(self.api.ke_log[:8]) if getattr(self.api, "ke_log", None) else (self.api.last_ke_reply or "Type a command: mashup, director, swarm…")
-            self.ke_box.insert("1.0", log)
-            self.ke_box.configure(state="disabled")
+            new_log = "\n".join(self.api.ke_log[:20]) if getattr(self.api, "ke_log", None) else (self.api.last_ke_reply or "Type a command: mashup, director, swarm…")
+            cur = self.ke_box.get("1.0", "end-1c")
+            if cur != new_log:
+                self.ke_box.configure(state="normal")
+                self.ke_box.delete("1.0", "end")
+                self.ke_box.insert("1.0", new_log)
+                self.ke_box.configure(state="disabled")
+        if getattr(self, "_popout_box", None) and getattr(self, "_popout_win", None) and self._popout_win.winfo_exists():
+            pop_cur = self._popout_box.get("1.0", "end-1c")
+            full_log = "\n\n".join(self.api.ke_log)
+            if pop_cur != full_log and not getattr(self, "_popout_searching", False):
+                self._popout_box.configure(state="normal")
+                self._popout_box.delete("1.0", "end")
+                self._popout_box.insert("1.0", full_log)
+                self._popout_box.configure(state="disabled")
         if tc:
             self._build_param_sliders(tc)
+
+    def _toggle_expand_ke(self):
+        self._ke_expanded = not getattr(self, "_ke_expanded", False)
+        if self._ke_expanded:
+            self.models_container.pack_forget()
+            self.ke_box.configure(height=26)
+            self.ke_box.pack_configure(fill="both", expand=True)
+            self.expand_btn.configure(text="⬚ Dock")
+        else:
+            self.ke_box.configure(height=5)
+            self.ke_box.pack_configure(fill="x", expand=False)
+            self.models_container.pack(fill="both", expand=True, padx=0, pady=0)
+            self.expand_btn.configure(text="⛶ Expand")
+
+    def _popout_ke(self):
+        if getattr(self, "_popout_win", None) and self._popout_win.winfo_exists():
+            self._popout_win.lift()
+            return
+        win = tk.Toplevel(self.root)
+        win.title("SSK Thought Process Console — Sovereign Vault")
+        win.geometry("920x680")
+        win.configure(bg=CARD)
+        self._popout_win = win
+
+        top_f = tk.Frame(win, bg=CARD)
+        top_f.pack(fill="x", padx=10, pady=8)
+        tk.Label(top_f, text="Search Vault:", bg=CARD, fg=MUTED, font=("Segoe UI", 9)).pack(side="left")
+        search_var = tk.StringVar()
+        s_entry = tk.Entry(top_f, textvariable=search_var, bg="#0a101c", fg=INK, relief="flat", insertbackground=INK, width=28)
+        s_entry.pack(side="left", padx=8, ipady=3)
+
+        box = tk.Text(win, bg="#0a101c", fg=CYAN, relief="flat", wrap="word", font=("Consolas", 10), insertbackground=INK)
+        box.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        self._popout_box = box
+
+        def do_copy():
+            text = box.get("1.0", "end-1c")
+            win.clipboard_clear()
+            win.clipboard_append(text)
+        ttk.Button(top_f, text="Copy All", command=do_copy).pack(side="right")
+
+        def update_popout(*args):
+            query = search_var.get().lower().strip()
+            self._popout_searching = bool(query)
+            entries = self.api.ke_log
+            if query:
+                entries = [e for e in entries if query in e.lower()]
+            text = "\n\n".join(entries) if entries else "No matching thoughts found."
+            box.configure(state="normal")
+            box.delete("1.0", "end")
+            box.insert("1.0", text)
+            box.configure(state="disabled")
+
+        search_var.trace_add("write", update_popout)
+        update_popout()
 
     def _fill_models(self):
         cat = self.cat_var.get() if hasattr(self, "cat_var") else "All"

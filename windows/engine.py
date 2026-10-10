@@ -380,7 +380,31 @@ def apply_hdr(ffmpeg: str, src: str, dst: str) -> tuple[bool, str]:
     return code == 0 and Path(dst).is_file(), out[-400:]
 
 
+_ASR_INSTANCE = None
+
+
+def get_sovereign_whisper_engine() -> SovereignWhisperASREngine:
+    global _ASR_INSTANCE
+    if _ASR_INSTANCE is None:
+        _ASR_INSTANCE = SovereignWhisperASREngine(model_id="openai/whisper-tiny")
+    return _ASR_INSTANCE
+
+
 def generate_captions(ffmpeg: str, src: str) -> list[dict]:
+    # 1. Primary: Native Sovereign Whisper ASR offline GPU/CPU inference
+    try:
+        engine = get_sovereign_whisper_engine()
+        res = engine.transcribe(src)
+        chunks = res.get("chunks", [])
+        if chunks:
+            return chunks
+        if res.get("text"):
+            dur = res.get("audio_duration_sec") or 3.0
+            return [{"start": 0.0, "end": dur, "text": res["text"]}]
+    except Exception:
+        pass
+
+    # 2. Secondary fallback: CLI whisper
     whisper = shutil.which("whisper")
     if whisper:
         work = Path(tempfile.mkdtemp(prefix="lsj_cap_"))
@@ -401,6 +425,8 @@ def generate_captions(ffmpeg: str, src: str) -> list[dict]:
         shutil.rmtree(work, ignore_errors=True)
         if caps:
             return caps
+
+    # 3. Tertiary fallback: silence detection
     _, text = run([
         ffmpeg, "-i", src, "-af", "silencedetect=n=-30dB:d=0.4", "-f", "null", "-",
     ], timeout=180)
@@ -636,8 +662,31 @@ class SovereignWhisperASREngine:
         except Exception:
             duration_sec = 14.5
 
+        temp_wav = None
+        target_audio = str(path)
+        if path.suffix.lower() != ".wav":
+            ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
+            temp_wav = Path(tempfile.mktemp(suffix=".wav"))
+            try:
+                code, _ = run([
+                    ffmpeg_bin, "-y", "-i", str(path),
+                    "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le",
+                    str(temp_wav)
+                ], timeout=180)
+                if code == 0 and temp_wav.is_file() and temp_wav.stat().st_size > 44:
+                    target_audio = str(temp_wav)
+            except Exception:
+                pass
+
         t0 = time.perf_counter()
-        result = self.pipeline(str(path))
+        try:
+            result = self.pipeline(target_audio)
+        finally:
+            if temp_wav and temp_wav.is_file():
+                try:
+                    temp_wav.unlink()
+                except OSError:
+                    pass
         transcribe_ms = (time.perf_counter() - t0) * 1000.0
 
         raw_text = result.get("text", "").strip()
