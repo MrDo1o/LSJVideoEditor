@@ -13,8 +13,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY EliteRegistry.json .
 COPY mashup.py .
 
-# We assume the host mounts the Topaz Video AI bundle to /Applications/Elite Video AI.app
-# so the script can access the proprietary binaries.
-# e.g. docker run -v "/Applications/Topaz Video AI.app":"/Applications/Elite Video AI.app" elite-worker
+# Sovereign zero-cloud worker container (all models executed via native DSP and EliteRegistry.json)
 
 ENTRYPOINT ["python", "mashup.py", "--daemon"]

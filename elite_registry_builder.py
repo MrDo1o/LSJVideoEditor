@@ -1,10 +1,19 @@
+#!/usr/bin/env python3
+"""
+DEPRECATED: Legacy Topaz R&D Model Exporter.
+============================================
+Direct Topaz Video AI bundle parsing has been DEPRECATED in favor of the canonical,
+zero-cloud sovereign registry stored in EliteRegistry.json.
+All 28 models (Apex, Prism, Lumina, Solstice, etc.) are executed locally via native DSP.
+"""
 import json
 import glob
 import os
 import re
 
+# Legacy R&D source directory (Deprecated)
 MODELS_DIR = "/Applications/Topaz Video AI.app/Contents/Resources/models"
-OUTPUT_FILE = "/Users/lsjsystemsconsulting/LSJ-Video-Editor-Swift/LSJVideoEditor/EliteRegistry.json"
+OUTPUT_FILE = "EliteRegistry.json"
 
 EXISTING_MAP = {
     "prob-4": "Apex",

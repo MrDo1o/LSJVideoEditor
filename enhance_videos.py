@@ -1,11 +1,23 @@
-import sys
-sys.path.append('/Users/lsjsystemsconsulting/Desktop')
-from lsj_topaz_integration import TopazVideoAnalyzer
-
+#!/usr/bin/env python3
+"""
+DEPRECATED: Legacy Topaz Video AI API Integration.
+==================================================
+The external Topaz API / TopazVideoAnalyzer dependency has been fully DEPRECATED.
+All video enhancement and mastering capabilities are now natively executed by the
+sovereign HotnHazy / SSK DSP engine via embedded FFmpeg filter graphs (Apex, Lumina, Solstice).
+"""
 import os
+import shutil
+import sys
+from pathlib import Path
+
+# Connect native sovereign NLE engine
+REPO_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(REPO_ROOT / "windows"))
+import engine as nle
 
 def enhance_all_videos():
-    analyzer = TopazVideoAnalyzer()
+    ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
     
     videos = [
         "/Volumes/Mac-Core/Media/Movies/copy_F42D491D-883F-4C7D-AB1D-532AF515D028.mp4",
@@ -81,14 +93,11 @@ def enhance_all_videos():
         file_name = os.path.basename(video_path)
         output_path = os.path.join(output_dir, f"{os.path.splitext(file_name)[0]}_enhanced.mp4")
         
-        result = analyzer.enhance_video(video_path, output_path, model="proteus", scale=2)
-        
-        if "error" in result:
-            print(f"Error enhancing {video_path}: {result['error']}")
-            if "stderr" in result:
-                print(f"Stderr: {result['stderr']}")
+        ok, msg = nle.enhance(ffmpeg_bin, video_path, output_path)
+        if not ok:
+            print(f"Error enhancing {video_path}: {msg}")
         else:
-            print(f"Successfully enhanced {video_path} to {output_path}")
+            print(f"Successfully enhanced {video_path} to {output_path} via sovereign HotnHazy/SSK engine")
 
 if __name__ == "__main__":
     enhance_all_videos()

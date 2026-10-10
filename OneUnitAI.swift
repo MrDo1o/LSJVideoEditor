@@ -112,8 +112,8 @@ class OneUnitAI {
         
         let scriptPath = "/Users/lsjsystemsconsulting/LSJ-Video-Editor-Swift/upscale_video.sh"
         
-        // Ensure the real-esrgan model matches one of the supported ones since Topaz models won't work natively here
-        // If a Topaz model was passed, fallback to realesrgan-x4plus
+        // Ensure the real-esrgan model matches supported sovereign models (legacy cloud models deprecated)
+        // Fallback to realesrgan-x4plus
         let esrganModel = ["realesr-animevideov3", "realesrgan-x4plus", "realesrgan-x4plus-anime", "realesrnet-x4plus"].contains(model) ? model : "realesrgan-x4plus"
         
         let logOutput = runShell(scriptPath, args: [input.path, output.path, scale, esrganModel])

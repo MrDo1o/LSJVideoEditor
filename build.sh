@@ -23,7 +23,7 @@ swiftc -emit-executable \
   $(find LSJ-Video-Editor-Swift/LSJVideoEditor -name "*.swift") \
   -o "$MAC_OS_DIR/$APP_NAME"
 
-echo "📦 Copying Resources (EliteEngine, Topaz, LumiHub, etc.)..."
+echo "📦 Copying Resources (EliteEngine, Sovereign DSP, LumiHub, etc.)..."
 # Check if EliteEngine is in the current folder, or the subfolder
 if [ -d "EliteEngine" ]; then
     cp -R "EliteEngine" "$RESOURCES_DIR/"

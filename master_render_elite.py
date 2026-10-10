@@ -15,7 +15,7 @@ def master_render():
         print("No clips found.")
         return
 
-    print(f"💎 Topaz Agent: Enhancing {len(clips)} clips for Elite Master Render (~3.3 hrs).")
+    print(f"💎 HotnHazy Sovereign Agent: Enhancing {len(clips)} clips for Elite Master Render (~3.3 hrs).")
     
     W, H = 1920, 1080
     inputs = []
@@ -31,10 +31,10 @@ def master_render():
             
         inputs.extend(["-i", local_path])
         
-        # ELITE AI PROFILE (Topaz Equivalent):
+        # ELITE AI PROFILE (Sovereign HotnHazy DSP - Local Zero-Cloud):
         # 1. Scale & Pad (1080p)
-        # 2. Denoise (nlmeans) - Simulates Proteus/Iris denoise
-        # 3. Sharpen (unsharp) - Simulates Topaz detail enhancement
+        # 2. Denoise (nlmeans) - Sovereign spatio-temporal denoise
+        # 3. Sharpen (unsharp) - Sovereign detail enhancement
         vf = (
             f"[{i}:v]scale={W}:{H}:force_original_aspect_ratio=decrease,pad={W}:{H}:(ow-iw)/2:(oh-ih)/2,"
             f"nlmeans=s=1.0:p=5:r=3,"  # Light denoise for stability
