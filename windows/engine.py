@@ -642,10 +642,16 @@ def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str
             and float(c.get("volume", 1.0)) > 0.001
         ]
 
-        total_timeline_dur = max(
-            (float(c.get("start") or 0) + float(c.get("duration") or 0) for c in usable_clips),
-            default=1.0
-        )
+        if visual_clips:
+            total_timeline_dur = max(
+                (float(c.get("start") or 0) + float(c.get("duration") or 0) for c in visual_clips),
+                default=1.0
+            )
+        else:
+            total_timeline_dur = max(
+                (float(c.get("start") or 0) + float(c.get("duration") or 0) for c in usable_clips),
+                default=1.0
+            )
         total_timeline_dur = max(0.1, total_timeline_dur)
 
         # -----------------------------------------------------------------
@@ -965,6 +971,7 @@ def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str
                     "-filter_complex", filter_str,
                     "-map", "[aout]",
                     "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
+                    "-t", f"{total_timeline_dur:.3f}",
                     str(audio_master)
                 ]
                 code, log = run(cmd_mix, timeout=600)
@@ -976,6 +983,7 @@ def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str
                         "-filter_complex", simple_filt,
                         "-map", "[aout]",
                         "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
+                        "-t", f"{total_timeline_dur:.3f}",
                         str(audio_master)
                     ]
                     code, log = run(cmd_fallback, timeout=600)

@@ -528,7 +528,8 @@ class EditorAPI:
         return False
 
     def remove_silence(self, threshold_db: float = -35.0, min_silence_dur: float = 0.4) -> bool:
-        """Excises silent intervals > min_silence_dur and ripple-compacts active speech segments."""
+        """Excises silent intervals > min_silence_dur and ripple-compacts active speech segments,
+        maintaining exact temporal alignment across overlays, detached audio, markers, and captions."""
         if not self.ffmpeg or not self.timeline:
             self.ai_status = "No clips or FFmpeg missing"
             return False
@@ -540,17 +541,37 @@ class EditorAPI:
             self.ai_status = "No valid video clips to process"
             return False
 
+        # Find detached companion audio clips on audio tracks (track >= video_track_count)
+        # that mirror targets (same mediaId and starting at same timeline start)
+        detached_companions = {}
+        for clip in targets:
+            c_start = float(clip.get("start") or 0)
+            companion = next(
+                (c for c in self.timeline 
+                 if int(c.get("track") or 0) >= self.video_track_count 
+                 and c.get("mediaId") == clip.get("mediaId")
+                 and abs(float(c.get("start") or 0) - c_start) < 0.1),
+                None
+            )
+            if companion:
+                detached_companions[clip["id"]] = companion
+
         total_excised = 0.0
-        new_timeline = [c for c in self.timeline if c not in targets]
+        excised_spans = []  # list of (global_start, global_end)
+        compacted_created_ids = set()
+        new_timeline = [c for c in self.timeline if c not in targets and c not in detached_companions.values()]
 
         for clip in targets:
             media = self.clip_by_id(clip["mediaId"])
             if not media or not Path(media.get("path") or "").is_file():
                 new_timeline.append(clip)
+                if clip["id"] in detached_companions:
+                    new_timeline.append(detached_companions[clip["id"]])
                 continue
 
             src_in = max(0.0, float(clip.get("sourceIn") or 0))
             dur = max(0.1, float(clip.get("duration") or 1))
+            clip_t_start = float(clip.get("start") or 0)
 
             cmd = [
                 self.ffmpeg, "-y", "-ss", f"{src_in:.3f}", "-t", f"{dur:.3f}",
@@ -561,6 +582,8 @@ class EditorAPI:
             code, out = nle.run(cmd, timeout=300)
             if code != 0:
                 new_timeline.append(clip)
+                if clip["id"] in detached_companions:
+                    new_timeline.append(detached_companions[clip["id"]])
                 continue
 
             silence_ranges = []
@@ -579,6 +602,8 @@ class EditorAPI:
 
             if not silence_ranges:
                 new_timeline.append(clip)
+                if clip["id"] in detached_companions:
+                    new_timeline.append(detached_companions[clip["id"]])
                 continue
 
             active_ranges = []
@@ -586,40 +611,101 @@ class EditorAPI:
             for s_start, s_end in silence_ranges:
                 if s_start > cur_pos + 0.08:
                     active_ranges.append((cur_pos, s_start))
-                total_excised += max(0.0, s_end - s_start)
+                excised_dur = max(0.0, s_end - s_start)
+                total_excised += excised_dur
+                excised_spans.append((clip_t_start + s_start, clip_t_start + s_end))
                 cur_pos = s_end
             if cur_pos < dur - 0.08:
                 active_ranges.append((cur_pos, dur))
 
             if not active_ranges:
                 new_timeline.append(clip)
+                if clip["id"] in detached_companions:
+                    new_timeline.append(detached_companions[clip["id"]])
                 continue
 
-            orig_t_start = clip["start"]
-            c_timeline_start = orig_t_start
+            companion = detached_companions.get(clip["id"])
+            c_timeline_start = clip_t_start
             for idx, (a_start, a_end) in enumerate(active_ranges):
                 seg_dur = a_end - a_start
                 if seg_dur < 0.05:
                     continue
-                item = copy.deepcopy(clip)
-                item["id"] = uuid.uuid4().hex[:8]
-                item["sourceIn"] = src_in + a_start
-                item["duration"] = seg_dur
-                item["start"] = c_timeline_start
-                item["name"] = f"{clip.get('name', 'Clip')}_speech_{idx+1}"
-                new_timeline.append(item)
+                # Video segment on Track 0
+                item_v = copy.deepcopy(clip)
+                new_v_id = uuid.uuid4().hex[:8]
+                item_v["id"] = new_v_id
+                item_v["sourceIn"] = src_in + a_start
+                item_v["duration"] = seg_dur
+                item_v["start"] = c_timeline_start
+                item_v["name"] = f"{clip.get('name', 'Clip')}_speech_{idx+1}"
+                new_timeline.append(item_v)
+                compacted_created_ids.add(new_v_id)
+
+                # Detached companion audio segment on audio track (in 100% exact sync)
+                if companion:
+                    item_a = copy.deepcopy(companion)
+                    new_a_id = uuid.uuid4().hex[:8]
+                    item_a["id"] = new_a_id
+                    item_a["sourceIn"] = src_in + a_start
+                    item_a["duration"] = seg_dur
+                    item_a["start"] = c_timeline_start
+                    item_a["name"] = f"{companion.get('name', 'Audio')}_speech_{idx+1}"
+                    new_timeline.append(item_a)
+                    compacted_created_ids.add(new_a_id)
+
                 c_timeline_start += seg_dur
 
-        new_timeline.sort(key=lambda c: (c.get("track", 0), c.get("start", 0)))
-        track0 = [c for c in new_timeline if c.get("track", 0) == 0]
-        cur_cursor = 0.0
-        for c in track0:
-            c["start"] = cur_cursor
-            cur_cursor += c["duration"]
+        # Ripple-compact remaining tracks (Overlays on Tracks 1..3, Background Music on Track 5)
+        excised_spans.sort(key=lambda s: s[0])
+        for c in new_timeline:
+            if c.get("id") in compacted_created_ids:
+                continue  # already generated in compacted timeline positions
 
+            c_orig_start = float(c.get("start") or 0)
+            c_orig_dur = float(c.get("duration") or 1)
+            c_orig_end = c_orig_start + c_orig_dur
+
+            shift_before = sum(end - start for (start, end) in excised_spans if end <= c_orig_start)
+            overlap_dur = sum(
+                max(0.0, min(c_orig_end, end) - max(c_orig_start, start))
+                for (start, end) in excised_spans
+                if max(c_orig_start, start) < min(c_orig_end, end)
+            )
+
+            c["start"] = max(0.0, c_orig_start - shift_before)
+            track_idx = int(c.get("track") or 0)
+            if overlap_dur > 0 and track_idx < self.video_track_count:
+                c["duration"] = max(0.5, c_orig_dur - overlap_dur)
+
+        # Clamp non-dialogue audio tracks (like background music) to new video program duration
+        new_track0_dur = max(
+            (float(c.get("start") or 0) + float(c.get("duration") or 0) for c in new_timeline if int(c.get("track") or 0) == 0),
+            default=0.0
+        )
+        if new_track0_dur > 0:
+            for c in new_timeline:
+                track_idx = int(c.get("track") or 0)
+                if track_idx >= self.video_track_count and c.get("id") not in compacted_created_ids:
+                    c_end = float(c.get("start") or 0) + float(c.get("duration") or 0)
+                    if c_end > new_track0_dur:
+                        c["duration"] = max(0.5, new_track0_dur - float(c.get("start") or 0))
+
+        # Ripple-compact chapter markers
+        if hasattr(self, "markers") and self.markers:
+            compacted_markers = []
+            for m in self.markers:
+                m_time = float(m.get("time") or 0)
+                shift = sum(end - start for (start, end) in excised_spans if end <= m_time)
+                new_time = max(0.0, round(m_time - shift, 2))
+                if not any(abs(cm["time"] - new_time) < 0.2 for cm in compacted_markers):
+                    compacted_markers.append({"time": new_time, "name": m.get("name", "Marker")})
+            self.markers = compacted_markers
+
+        # Sort entire timeline
+        new_timeline.sort(key=lambda c: (int(c.get("track") or 0), float(c.get("start") or 0)))
         self.timeline = new_timeline
         self.ai_status = f"Smart Silence Removal: excised {total_excised:.2f}s of dead air"
-        self.log_thought(f"Excised {total_excised:.2f}s of dead-air silence across timeline", "SILENCE")
+        self.log_thought(f"Excised {total_excised:.2f}s dead air; ripple-compacted video, overlays, audio, and markers", "SILENCE")
         self.ui_dirty = True
         return True
 
@@ -630,14 +716,12 @@ class EditorAPI:
             return False
 
         self._snapshot("Auto Chapters")
-        self.markers = []
+        self.markers = [{"time": 0.0, "name": "Introduction & Overview"}]
         track0_clips = [c for c in sorted(self.timeline, key=lambda x: x.get("start", 0)) if c.get("track", 0) == 0]
         if not track0_clips:
             track0_clips = self.timeline
 
         total_dur = max((c["start"] + c["duration"] for c in track0_clips), default=1.0)
-        self.markers.append({"time": 0.0, "name": "Introduction & Overview"})
-
         accum = 0.0
         chapter_idx = 2
         for clip in track0_clips:
@@ -645,18 +729,22 @@ class EditorAPI:
             cap = clip.get("caption", "").strip()
             if accum >= interval_sec:
                 marker_time = round(clip["start"], 2)
-                if cap:
-                    words = [w for w in cap.split() if len(w) > 3][:4]
-                    topic = " ".join(words).title() if words else f"Part {chapter_idx}"
-                    title = f"Topic: {topic}"
-                else:
-                    title = f"Section {chapter_idx}"
-                self.markers.append({"time": marker_time, "name": title})
-                chapter_idx += 1
-                accum = 0.0
+                # Ensure marker is strictly after introduction (marker_time > 1.0) and not duplicate
+                if marker_time > 1.0 and not any(abs(m["time"] - marker_time) < 2.0 for m in self.markers):
+                    if cap:
+                        words = [w for w in cap.split() if len(w) > 3][:4]
+                        topic = " ".join(words).title() if words else f"Part {chapter_idx}"
+                        title = f"Topic: {topic}"
+                    else:
+                        title = f"Section {chapter_idx}"
+                    self.markers.append({"time": marker_time, "name": title})
+                    chapter_idx += 1
+                    accum = 0.0
 
         if total_dur > 20.0 and (not self.markers or self.markers[-1]["time"] < total_dur - 10.0):
-            self.markers.append({"time": round(total_dur * 0.85, 2), "name": "Summary & Key Takeaways"})
+            summary_time = round(total_dur * 0.85, 2)
+            if not any(abs(m["time"] - summary_time) < 2.0 for m in self.markers):
+                self.markers.append({"time": summary_time, "name": "Summary & Key Takeaways"})
 
         self.ai_status = f"Generated {len(self.markers)} auto-chapters"
         self.log_thought(f"Generated {len(self.markers)} chapter markers across {total_dur:.1f}s sequence", "CHAPTERS")
