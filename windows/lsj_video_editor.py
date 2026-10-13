@@ -1954,13 +1954,14 @@ class EditorAPI:
             self.ai_status = f"Vault error: {exc}"
         return self.get_state()
 
-    def apply_transition(self, kind="Fade"):
+    def apply_transition(self, kind="Fade", duration=0.4):
         self._snapshot(f"Transition {kind}")
         for tid in self.selected_timeline_ids:
             clip = self._timeline_by_id(tid)
             if clip:
                 clip["transition"] = kind
-                clip["fadeIn"] = 0.4 if kind != "None" else 0.0
+                clip["transitionDur"] = float(duration)
+                clip["fadeIn"] = float(duration) if kind != "None" else 0.0
         return self.get_state()
 
     def ai_edit(self, prompt):

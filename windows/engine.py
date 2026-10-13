@@ -61,6 +61,26 @@ DIRECTOR_FILTERS = [
     "Elite Motion (Pan)",
 ]
 
+TRANSITION_MAP = {
+    "fade": "fade",
+    "dissolve": "dissolve",
+    "wipe": "wipeleft",
+    "wipeleft": "wipeleft",
+    "wiperight": "wiperight",
+    "wipeup": "wipeup",
+    "wipedown": "wipedown",
+    "slideleft": "slideleft",
+    "slideright": "slideright",
+    "slideup": "slideup",
+    "slidedown": "slidedown",
+    "circlecrop": "circlecrop",
+    "rectcrop": "rectcrop",
+    "pixelize": "pixelize",
+    "fadeblack": "fadeblack",
+    "fadewhite": "fadewhite",
+    "zoomin": "zoomin",
+}
+
 
 def run(cmd, timeout=None) -> tuple[int, str]:
     try:
@@ -554,6 +574,7 @@ def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str
                 track0_clips = visual_clips
 
             vpieces = []
+            piece_meta = []
             cur_t = 0.0
             for i, clip in enumerate(track0_clips):
                 if progress_cb:
@@ -576,6 +597,7 @@ def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str
                     code, log = run(cmd_gap, timeout=300)
                     if code == 0 and gap_piece.is_file():
                         vpieces.append(gap_piece)
+                        piece_meta.append({"dur": gap, "is_gap": True, "clip": None})
                         cur_t += gap
 
                 vpiece = work / f"vseg_{len(vpieces):04d}.mp4"
@@ -591,6 +613,7 @@ def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str
                 if code != 0 or not vpiece.is_file() or vpiece.stat().st_size < 500:
                     return False, f"video segment {i} failed: {log[-400:]}"
                 vpieces.append(vpiece)
+                piece_meta.append({"dur": dur, "is_gap": False, "clip": clip})
                 cur_t += dur
 
             trail_gap = total_timeline_dur - cur_t
@@ -606,25 +629,78 @@ def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str
                 code, log = run(cmd_gap, timeout=300)
                 if code == 0 and gap_piece.is_file():
                     vpieces.append(gap_piece)
+                    piece_meta.append({"dur": trail_gap, "is_gap": True, "clip": None})
 
             if not vpieces:
                 return False, "no video pieces generated"
 
-            vlisting = work / "vconcat.txt"
-            vlisting.write_text("".join(f"file '{p.as_posix()}'\n" for p in vpieces), encoding="utf-8")
             base_video = work / "base_video.mp4"
-            code, log = run([
-                ffmpeg, "-y", "-f", "concat", "-safe", "0", "-i", str(vlisting),
-                "-c:v", "copy", str(base_video)
-            ], timeout=600)
-            if code != 0 or not base_video.is_file():
+            has_transitions = any(
+                str((p.get("clip") or {}).get("transition") or "").strip().lower() in TRANSITION_MAP
+                for p in piece_meta[1:]
+            )
+
+            if not has_transitions or len(vpieces) < 2:
+                vlisting = work / "vconcat.txt"
+                vlisting.write_text("".join(f"file '{p.as_posix()}'\n" for p in vpieces), encoding="utf-8")
                 code, log = run([
                     ffmpeg, "-y", "-f", "concat", "-safe", "0", "-i", str(vlisting),
+                    "-c:v", "copy", str(base_video)
+                ], timeout=600)
+                if code != 0 or not base_video.is_file():
+                    code, log = run([
+                        ffmpeg, "-y", "-f", "concat", "-safe", "0", "-i", str(vlisting),
+                        *vopts.split(),
+                        str(base_video)
+                    ], timeout=1200)
+                if code != 0 or not base_video.is_file():
+                    return False, f"visual base concat failed: {log[-400:]}"
+            else:
+                xf_inputs = []
+                for p in vpieces:
+                    xf_inputs.extend(["-i", str(p)])
+
+                xf_filts = []
+                last_xf_label = "0:v"
+                cur_offset = piece_meta[0]["dur"]
+
+                for i in range(1, len(vpieces)):
+                    p_info = piece_meta[i]
+                    p_clip = p_info.get("clip") or {}
+                    t_kind = str(p_clip.get("transition") or "None").strip().lower()
+                    t_dur = float(p_clip.get("transitionDur") or 0.4)
+                    prev_dur = piece_meta[i - 1]["dur"]
+                    cur_dur = p_info["dur"]
+                    t_dur = max(0.05, min(t_dur, prev_dur * 0.45, cur_dur * 0.45))
+
+                    if t_kind in TRANSITION_MAP and not p_info.get("is_gap") and not piece_meta[i - 1].get("is_gap"):
+                        xf_trans = TRANSITION_MAP[t_kind]
+                        offset = max(0.0, cur_offset - t_dur)
+                        xf_filts.append(
+                            f"[{last_xf_label}][{i}:v]xfade=transition={xf_trans}:duration={t_dur:.3f}:offset={offset:.3f}[xf_{i}]"
+                        )
+                        last_xf_label = f"xf_{i}"
+                        cur_offset = offset + cur_dur
+                    else:
+                        cut_dur = 0.033
+                        offset = max(0.0, cur_offset - cut_dur)
+                        xf_filts.append(
+                            f"[{last_xf_label}][{i}:v]xfade=transition=fade:duration={cut_dur:.3f}:offset={offset:.3f}[xf_{i}]"
+                        )
+                        last_xf_label = f"xf_{i}"
+                        cur_offset = offset + cur_dur
+
+                xf_filts.append(f"[{last_xf_label}]format=yuv420p[base_v]")
+                cmd_xf = [
+                    ffmpeg, "-y", *xf_inputs,
+                    "-filter_complex", ";".join(xf_filts),
+                    "-map", "[base_v]",
                     *vopts.split(),
                     str(base_video)
-                ], timeout=1200)
-            if code != 0 or not base_video.is_file():
-                return False, f"visual base concat failed: {log[-400:]}"
+                ]
+                code, log = run(cmd_xf, timeout=1800)
+                if code != 0 or not base_video.is_file():
+                    return False, f"xfade transition failed: {log[-400:]}"
 
             # Step 2: Multi-Track Video Compositing (Overlays, PIP, B-roll on Tracks 1..N)
             overlay_clips = [c for c in visual_clips if int(c.get("track") or 0) > 0]
