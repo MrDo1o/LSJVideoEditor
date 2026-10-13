@@ -488,83 +488,307 @@ def _playable_opts(video_opts: str | None, audio_opts: str | None) -> tuple[str,
 
 def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str,
                     resolution: str, fps: int, mastering: bool, progress_cb=None,
-                    video_opts: str | None = None, audio_opts: str | None = None) -> tuple[bool, str]:
+                    video_opts: str | None = None, audio_opts: str | None = None,
+                    video_track_count: int = 4, ducking: bool = True,
+                    speech_intervals: list[tuple[float, float]] | None = None) -> tuple[bool, str]:
     try:
         w, h = (int(x) for x in resolution.lower().split("x"))
     except ValueError:
         w, h = 1920, 1080
     w, h = _even(max(320, w)), _even(max(180, h))
-    usable = []
-    for clip in sorted(clips, key=lambda c: (c["start"], c["track"])):
+
+    usable_clips = []
+    for clip in clips:
         media = media_by_id.get(clip.get("mediaId"))
         if media and Path(media.get("path") or "").is_file():
-            usable.append((clip, media))
-    if not usable:
+            usable_clips.append(clip)
+    if not usable_clips:
         return False, "No valid media on timeline"
+
     vopts, aopts = _playable_opts(video_opts, audio_opts)
     work = Path(tempfile.mkdtemp(prefix="lsj_export_"))
-    pieces = []
     last_log = ""
+
     try:
-        for i, (clip, media) in enumerate(usable):
-            if progress_cb:
-                progress_cb(0.05 + 0.75 * (i / max(1, len(usable))))
-            piece = work / f"seg_{i:04d}.mp4"
-            src = max(0.0, float(clip.get("sourceIn") or 0))
-            dur = max(0.1, float(clip.get("duration") or 1))
-            vf = clip_vf(clip, w, h, int(fps), mastering)
-            vf = vf + ",format=yuv420p"
-            cmd = [
+        # Separate visual clips (video tracks < video_track_count) and audio-contributing clips
+        visual_clips = [
+            c for c in sorted(usable_clips, key=lambda x: (float(x.get("start") or 0), int(x.get("track") or 0)))
+            if int(c.get("track") or 0) < video_track_count and not media_by_id[c["mediaId"]].get("is_audio")
+        ]
+
+        audio_clips = [
+            c for c in sorted(usable_clips, key=lambda x: (float(x.get("start") or 0), int(x.get("track") or 0)))
+            if (media_by_id[c["mediaId"]].get("has_audio") or media_by_id[c["mediaId"]].get("is_audio"))
+            and float(c.get("volume", 1.0)) > 0.001
+        ]
+
+        total_timeline_dur = max(
+            (float(c.get("start") or 0) + float(c.get("duration") or 0) for c in usable_clips),
+            default=1.0
+        )
+        total_timeline_dur = max(0.1, total_timeline_dur)
+
+        # -----------------------------------------------------------------
+        # Phase 1: Render Visual Video Master
+        # -----------------------------------------------------------------
+        visual_master = work / "visual_master.mp4"
+        if not visual_clips:
+            cmd_black = [
                 ffmpeg, "-y",
-                "-ss", f"{src:.3f}", "-t", f"{dur:.3f}", "-i", media["path"],
+                "-f", "lavfi", "-t", f"{total_timeline_dur:.3f}",
+                "-i", f"color=c=black:s={w}x{h}:r={fps}",
+                *vopts.split(),
+                "-an", str(visual_master)
             ]
-            if not media.get("has_audio") or media.get("is_audio"):
-                cmd.extend(["-f", "lavfi", "-t", f"{dur:.3f}", "-i", "anullsrc=r=48000:cl=stereo"])
-                maps = ["-map", "0:v:0?", "-map", "1:a:0"]
-                if media.get("is_audio"):
-                    cmd = [
+            code, log = run(cmd_black, timeout=600)
+            if code != 0 or not visual_master.is_file():
+                return False, f"Failed to generate visual canvas: {log[-400:]}"
+        else:
+            track0_clips = [c for c in visual_clips if int(c.get("track") or 0) == 0]
+            if not track0_clips:
+                track0_clips = visual_clips
+
+            vpieces = []
+            cur_t = 0.0
+            for i, clip in enumerate(track0_clips):
+                if progress_cb:
+                    progress_cb(0.05 + 0.55 * (i / max(1, len(track0_clips))))
+                media = media_by_id[clip["mediaId"]]
+                src = max(0.0, float(clip.get("sourceIn") or 0))
+                dur = max(0.05, float(clip.get("duration") or 1))
+                c_start = max(0.0, float(clip.get("start") or 0))
+
+                gap = c_start - cur_t
+                if gap >= 0.033:
+                    gap_piece = work / f"vgap_{len(vpieces):04d}.mp4"
+                    cmd_gap = [
                         ffmpeg, "-y",
-                        "-f", "lavfi", "-t", f"{dur:.3f}", "-i", f"color=c=black:s={w}x{h}:r={fps}",
-                        "-ss", f"{src:.3f}", "-t", f"{dur:.3f}", "-i", media["path"],
+                        "-f", "lavfi", "-t", f"{gap:.3f}",
+                        "-i", f"color=c=black:s={w}x{h}:r={fps}",
+                        *vopts.split(),
+                        "-an", str(gap_piece)
                     ]
-                    maps = ["-map", "0:v:0", "-map", "1:a:0?"]
+                    code, log = run(cmd_gap, timeout=300)
+                    if code == 0 and gap_piece.is_file():
+                        vpieces.append(gap_piece)
+                        cur_t += gap
+
+                vpiece = work / f"vseg_{len(vpieces):04d}.mp4"
+                vf = clip_vf(clip, w, h, int(fps), mastering) + ",format=yuv420p"
+                cmd_v = [
+                    ffmpeg, "-y",
+                    "-ss", f"{src:.3f}", "-t", f"{dur:.3f}", "-i", media["path"],
+                    "-vf", vf, "-an",
+                    *vopts.split(),
+                    "-t", f"{dur:.3f}", str(vpiece)
+                ]
+                code, log = run(cmd_v, timeout=1800)
+                if code != 0 or not vpiece.is_file() or vpiece.stat().st_size < 500:
+                    return False, f"video segment {i} failed: {log[-400:]}"
+                vpieces.append(vpiece)
+                cur_t += dur
+
+            trail_gap = total_timeline_dur - cur_t
+            if trail_gap >= 0.033:
+                gap_piece = work / f"vgap_{len(vpieces):04d}.mp4"
+                cmd_gap = [
+                    ffmpeg, "-y",
+                    "-f", "lavfi", "-t", f"{trail_gap:.3f}",
+                    "-i", f"color=c=black:s={w}x{h}:r={fps}",
+                    *vopts.split(),
+                    "-an", str(gap_piece)
+                ]
+                code, log = run(cmd_gap, timeout=300)
+                if code == 0 and gap_piece.is_file():
+                    vpieces.append(gap_piece)
+
+            if not vpieces:
+                return False, "no video pieces generated"
+
+            vlisting = work / "vconcat.txt"
+            vlisting.write_text("".join(f"file '{p.as_posix()}'\n" for p in vpieces), encoding="utf-8")
+            code, log = run([
+                ffmpeg, "-y", "-f", "concat", "-safe", "0", "-i", str(vlisting),
+                "-c:v", "copy", str(visual_master)
+            ], timeout=600)
+            if code != 0 or not visual_master.is_file():
+                code, log = run([
+                    ffmpeg, "-y", "-f", "concat", "-safe", "0", "-i", str(vlisting),
+                    *vopts.split(),
+                    str(visual_master)
+                ], timeout=1200)
+            if code != 0 or not visual_master.is_file():
+                return False, f"visual concat failed: {log[-400:]}"
+
+        if progress_cb:
+            progress_cb(0.65)
+
+        # -----------------------------------------------------------------
+        # Phase 2: Render & Composite Multi-Track Audio Master
+        # -----------------------------------------------------------------
+        audio_master = work / "audio_master.wav"
+        if not audio_clips:
+            cmd_null = [
+                ffmpeg, "-y", "-f", "lavfi", "-t", f"{total_timeline_dur:.3f}",
+                "-i", "anullsrc=r=48000:cl=stereo",
+                "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
+                str(audio_master)
+            ]
+            code, log = run(cmd_null, timeout=300)
+            if code != 0 or not audio_master.is_file():
+                return False, f"Failed to generate silent audio canvas: {log[-400:]}"
+        else:
+            audio_slices = []
+            for j, clip in enumerate(audio_clips):
+                if progress_cb:
+                    progress_cb(0.65 + 0.20 * (j / max(1, len(audio_clips))))
+                media = media_by_id[clip["mediaId"]]
+                src = max(0.0, float(clip.get("sourceIn") or 0))
+                dur = max(0.05, float(clip.get("duration") or 1))
+                start = max(0.0, float(clip.get("start") or 0))
+                af = clip_af(clip) + ",aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo"
+                slice_wav = work / f"aslice_{j:04d}.wav"
+                cmd_a = [
+                    ffmpeg, "-y",
+                    "-ss", f"{src:.3f}", "-t", f"{dur:.3f}", "-i", media["path"],
+                    "-vn", "-af", af,
+                    "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
+                    "-t", f"{dur:.3f}", str(slice_wav)
+                ]
+                code, log = run(cmd_a, timeout=600)
+                if code == 0 and slice_wav.is_file() and slice_wav.stat().st_size > 100:
+                    is_dialogue = (
+                        int(clip.get("track") or 0) == 0 or
+                        clip.get("name", "").endswith("[A]") or
+                        clip.get("audio_type") == "dialogue" or
+                        not media.get("is_audio")
+                    )
+                    audio_slices.append({
+                        "path": slice_wav,
+                        "start": start,
+                        "dur": dur,
+                        "is_dialogue": is_dialogue,
+                        "clip": clip,
+                    })
+                else:
+                    return False, f"audio slice {j} failed: {log[-400:]}"
+
+            if not audio_slices:
+                return False, "no audio slices generated"
+
+            if len(audio_slices) == 1:
+                s0 = audio_slices[0]
+                delay_ms = int(round(s0["start"] * 1000))
+                if delay_ms > 0:
+                    cmd_mix = [
+                        ffmpeg, "-y", "-i", str(s0["path"]),
+                        "-af", f"adelay={delay_ms}|{delay_ms},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo",
+                        "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
+                        str(audio_master)
+                    ]
+                    code, log = run(cmd_mix, timeout=300)
+                    if code != 0 or not audio_master.is_file():
+                        shutil.copyfile(str(s0["path"]), str(audio_master))
+                else:
+                    shutil.copyfile(str(s0["path"]), str(audio_master))
             else:
-                maps = ["-map", "0:v:0?", "-map", "0:a:0?"]
-            af = clip_af(clip) + ",aformat=sample_fmts=fltp:channel_layouts=stereo"
-            cmd.extend([
-                "-vf", vf, "-af", af,
-                *maps,
-                *vopts.split(), *aopts.split(),
-                "-t", f"{dur:.3f}",
-                "-shortest", "-movflags", "+faststart",
-                str(piece),
-            ])
-            code, log = run(cmd, timeout=1800)
-            last_log = log
-            if code != 0 or not piece.is_file() or piece.stat().st_size < 1000:
-                return False, f"segment {i} failed: {log[-400:]}"
-            pieces.append(piece)
-        if not pieces:
-            return False, "no segments"
-        listing = work / "concat.txt"
-        listing.write_text("".join(f"file '{p.as_posix()}'\n" for p in pieces), encoding="utf-8")
+                dia_indices = [idx for idx, s in enumerate(audio_slices) if s["is_dialogue"]]
+                mus_indices = [idx for idx, s in enumerate(audio_slices) if not s["is_dialogue"]]
+
+                inputs = []
+                for s in audio_slices:
+                    inputs.extend(["-i", str(s["path"])])
+
+                filt_parts = []
+                for idx, s in enumerate(audio_slices):
+                    d_ms = int(round(s["start"] * 1000))
+                    filt_parts.append(f"[{idx}:a]adelay={d_ms}|{d_ms},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[a{idx}]")
+
+                if ducking and dia_indices and mus_indices:
+                    # Dialogue bus
+                    if len(dia_indices) == 1:
+                        filt_parts.append(f"[a{dia_indices[0]}]apad,asplit=2[dia_sc][dia_main]")
+                    else:
+                        d_in = "".join(f"[a{k}]" for k in dia_indices)
+                        filt_parts.append(f"{d_in}amix=inputs={len(dia_indices)}:duration=longest:dropout_transition=0:normalize=0,apad,asplit=2[dia_sc][dia_main]")
+
+                    # Music bus
+                    if len(mus_indices) == 1:
+                        mus_bus = f"[a{mus_indices[0]}]"
+                    else:
+                        m_in = "".join(f"[a{k}]" for k in mus_indices)
+                        filt_parts.append(f"{m_in}amix=inputs={len(mus_indices)}:duration=longest:dropout_transition=0:normalize=0[mus_raw]")
+                        mus_bus = "[mus_raw]"
+
+                    # Dynamic voice-activated ducking (-12 dB attenuation with release)
+                    filt_parts.append(f"{mus_bus}[dia_sc]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=250:makeup=1[ducked_mus]")
+                    filt_parts.append("[dia_main][ducked_mus]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[aout]")
+                else:
+                    all_in = "".join(f"[a{k}]" for k in range(len(audio_slices)))
+                    filt_parts.append(f"{all_in}amix=inputs={len(audio_slices)}:duration=longest:dropout_transition=0:normalize=0[aout]")
+
+                filter_str = ";".join(filt_parts)
+                cmd_mix = [
+                    ffmpeg, "-y", *inputs,
+                    "-filter_complex", filter_str,
+                    "-map", "[aout]",
+                    "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
+                    str(audio_master)
+                ]
+                code, log = run(cmd_mix, timeout=600)
+                if code != 0 or not audio_master.is_file():
+                    simple_filt = ";".join([f"[{i}:a]adelay={int(round(s['start']*1000))}|{int(round(s['start']*1000))}[sa{i}]" for i, s in enumerate(audio_slices)])
+                    simple_filt += f";{''.join(f'[sa{i}]' for i in range(len(audio_slices)))}amix=inputs={len(audio_slices)}:duration=longest:dropout_transition=0:normalize=0[aout]"
+                    cmd_fallback = [
+                        ffmpeg, "-y", *inputs,
+                        "-filter_complex", simple_filt,
+                        "-map", "[aout]",
+                        "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
+                        str(audio_master)
+                    ]
+                    code, log = run(cmd_fallback, timeout=600)
+                    if code != 0 or not audio_master.is_file():
+                        return False, f"audio mix failed: {log[-400:]}"
+
+        if progress_cb:
+            progress_cb(0.90)
+
+        # -----------------------------------------------------------------
+        # Phase 3: Final Master Multiplexing & MP4/MOV Container
+        # -----------------------------------------------------------------
         dest_path = Path(dest)
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         mux = ["-f", "mov"] if dest_path.suffix.lower() in {".mov", ".qt"} else ["-f", "mp4"]
-        code, log = run([
-            ffmpeg, "-y", "-f", "concat", "-safe", "0", "-i", str(listing),
-            "-c", "copy", "-movflags", "+faststart", *mux, str(dest_path),
-        ], timeout=600)
+
+        cmd_final = [
+            ffmpeg, "-y",
+            "-i", str(visual_master),
+            "-i", str(audio_master),
+            "-c:v", "copy",
+            *aopts.split(),
+            "-t", f"{total_timeline_dur:.3f}",
+            "-movflags", "+faststart",
+            *mux, str(dest_path)
+        ]
+        code, log = run(cmd_final, timeout=600)
         last_log = log
         if code != 0 or not dest_path.is_file() or dest_path.stat().st_size < 2000:
-            code, log = run([
-                ffmpeg, "-y", "-f", "concat", "-safe", "0", "-i", str(listing),
-                *PLAYABLE_V.split(), *PLAYABLE_A.split(),
-                "-movflags", "+faststart", *mux, str(dest_path),
-            ], timeout=1800)
+            cmd_reencode = [
+                ffmpeg, "-y",
+                "-i", str(visual_master),
+                "-i", str(audio_master),
+                *vopts.split(),
+                *aopts.split(),
+                "-t", f"{total_timeline_dur:.3f}",
+                "-movflags", "+faststart",
+                *mux, str(dest_path)
+            ]
+            code, log = run(cmd_reencode, timeout=1800)
             last_log = log
+
         if code != 0 or not dest_path.is_file():
             return False, f"mux failed: {last_log[-400:]}"
+
         if progress_cb:
             progress_cb(1.0)
         return True, "ok"

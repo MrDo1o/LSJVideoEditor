@@ -309,7 +309,7 @@ def find_icon() -> str | None:
 
 
 class EditorAPI:
-    def __init__(self):
+    def __init__(self, project_name: str = "Untitled"):
         PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         VAULT_DIR.mkdir(parents=True, exist_ok=True)
@@ -319,7 +319,7 @@ class EditorAPI:
         self.ffmpeg, self.ffprobe = shutil.which("ffmpeg"), shutil.which("ffprobe")
         self.reload_registry()
         self.lock = threading.Lock()
-        self._reset_project("Untitled")
+        self._reset_project(project_name)
         self.history: list[str] = []
         self.undo_stack: list[list[dict]] = []
         self.redo_stack: list[list[dict]] = []
@@ -339,6 +339,7 @@ class EditorAPI:
         self.selected_timeline_ids: list[str] = []
         self.video_track_count = 4
         self.audio_track_count = 2
+        self.audio_ducking = True
         self.pixels_per_second = 24.0
         self.snap = True
         self.comparison = False
@@ -717,6 +718,7 @@ class EditorAPI:
             "timeline": self.timeline,
             "videoTrackCount": self.video_track_count,
             "audioTrackCount": self.audio_track_count,
+            "audioDucking": self.audio_ducking,
             "selectedClipId": self.selected_clip_id,
             "selectedTimelineIds": self.selected_timeline_ids,
             "currentTime": self.current_time,
@@ -917,6 +919,7 @@ class EditorAPI:
         self.timeline = data.get("timelineClips") or data.get("timeline") or []
         self.video_track_count = int(data.get("videoTrackCount") or 2)
         self.audio_track_count = int(data.get("audioTrackCount") or 1)
+        self.audio_ducking = bool(data.get("audioDucking", True))
         for clip in self.clips:
             clip.setdefault("id", str(uuid.uuid4()))
             clip.setdefault("path", self._legacy_path(clip))
@@ -953,6 +956,7 @@ class EditorAPI:
             "timelineClips": self.timeline,
             "videoTrackCount": self.video_track_count,
             "audioTrackCount": self.audio_track_count,
+            "audioDucking": self.audio_ducking,
         }
         dest = PROJECTS_DIR / f"{self.project_name}.lsj"
         dest.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -1377,6 +1381,8 @@ class EditorAPI:
             self.ffmpeg, self.timeline, media_by_id, dest, resolution, int(fps), mastering, progress,
             video_opts=(enc or {}).get("ffmpegOpts") if use_reg else None,
             audio_opts=(aud or {}).get("ffmpegOpts") if use_reg else None,
+            video_track_count=self.video_track_count,
+            ducking=getattr(self, "audio_ducking", True),
         )
         self.is_processing = False
         self.processing_progress = 1.0 if ok else 0.0
@@ -1543,6 +1549,10 @@ class EditorAPI:
             self.audio_track_count += 1
         else:
             self.video_track_count += 1
+        return self.get_state()
+
+    def set_audio_ducking(self, enabled: bool):
+        self.audio_ducking = bool(enabled)
         return self.get_state()
 
     def set_zoom(self, pps):
