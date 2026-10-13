@@ -502,20 +502,114 @@ def _even(n: int) -> int:
     return n if n % 2 == 0 else n + 1
 
 
-def _playable_opts(video_opts: str | None, audio_opts: str | None) -> tuple[str, str]:
+_HWACCEL_CACHE: dict | None = None
+
+
+def detect_hardware_encoders(ffmpeg: str) -> dict:
+    """Probes and verifies GPU hardware acceleration encoders on the host machine."""
+    global _HWACCEL_CACHE
+    if _HWACCEL_CACHE is not None:
+        return _HWACCEL_CACHE
+
+    results = {
+        "nvenc": False,
+        "qsv": False,
+        "mf": False,
+        "amf": False,
+        "cuda_available": False,
+        "best_hardware_encoder": None,
+        "best_hardware_vopts": None,
+        "encoders_tested": {}
+    }
+
+    try:
+        import torch
+        results["cuda_available"] = bool(torch.cuda.is_available())
+        if results["cuda_available"]:
+            results["cuda_device_name"] = torch.cuda.get_device_name(0)
+    except Exception:
+        results["cuda_available"] = False
+
+    test_specs = [
+        ("nvenc", "h264_nvenc", "-c:v h264_nvenc -preset p4 -b:v 25M -pix_fmt yuv420p"),
+        ("qsv", "h264_qsv", "-c:v h264_qsv -b:v 25M -pix_fmt yuv420p"),
+        ("mf", "h264_mf", "-c:v h264_mf -b:v 25M -pix_fmt yuv420p"),
+        ("amf", "h264_amf", "-c:v h264_amf -b:v 25M -pix_fmt yuv420p"),
+    ]
+
+    for hw_key, enc_name, vopt in test_specs:
+        try:
+            cmd = [
+                ffmpeg, "-y",
+                "-f", "lavfi", "-i", "testsrc=duration=0.1:size=640x360:rate=30",
+                "-c:v", enc_name,
+                "-f", "null", "-"
+            ]
+            code, _ = run(cmd, timeout=5)
+            passed = (code == 0)
+            results["encoders_tested"][enc_name] = passed
+            if passed:
+                results[hw_key] = True
+                if results["best_hardware_encoder"] is None:
+                    results["best_hardware_encoder"] = enc_name
+                    results["best_hardware_vopts"] = vopt
+        except Exception:
+            results["encoders_tested"][enc_name] = False
+
+    _HWACCEL_CACHE = results
+    return results
+
+
+def get_optimal_export_vopts(ffmpeg: str, resolution: str = "1920x1080", fps: int = 60,
+                             preset: str = "balanced") -> str:
+    """Returns optimal hardware-accelerated or multithreaded CPU video encoding flags."""
+    hw = detect_hardware_encoders(ffmpeg)
+    try:
+        w, h = (int(x) for x in resolution.lower().split("x"))
+    except Exception:
+        w, h = 1920, 1080
+
+    is_4k = (w >= 3840 or h >= 2160)
+    target_bitrate = "50M" if is_4k else "16M"
+    max_bitrate = "75M" if is_4k else "24M"
+
+    enc = hw.get("best_hardware_encoder")
+    if enc == "h264_nvenc":
+        nv_p = "p2" if preset == "ultrafast" else ("p4" if preset == "balanced" else "p6")
+        return f"-c:v h264_nvenc -preset {nv_p} -tune hq -rc vbr -cq 19 -b:v {target_bitrate} -maxrate {max_bitrate} -pix_fmt yuv420p -tag:v avc1"
+    elif enc == "h264_qsv":
+        return f"-c:v h264_qsv -global_quality 21 -b:v {target_bitrate} -maxrate {max_bitrate} -pix_fmt yuv420p -tag:v avc1"
+    elif enc == "h264_mf":
+        return f"-c:v h264_mf -b:v {target_bitrate} -pix_fmt yuv420p -tag:v avc1"
+    else:
+        cpu_preset = "ultrafast" if (is_4k or preset == "ultrafast") else "veryfast"
+        return f"-c:v libx264 -preset {cpu_preset} -crf 20 -profile:v high -level 5.1 -pix_fmt yuv420p -tag:v avc1"
+
+
+def _playable_opts(video_opts: str | None, audio_opts: str | None, ffmpeg: str | None = None,
+                   resolution: str = "1920x1080", fps: int = 60) -> tuple[str, str]:
     v = (video_opts or "").lower()
-    safe_v = any(k in v for k in ("libx264", "h264", "avc")) and "prores" not in v and "videotoolbox" not in v
+    safe_v = any(k in v for k in ("libx264", "h264", "avc", "hevc", "h265", "nvenc", "qsv", "mf", "amf", "av1")) and "prores" not in v and "videotoolbox" not in v
     a = (audio_opts or "").lower()
     safe_a = any(k in a for k in ("aac", "libfdk")) and "pcm" not in a
-    return (video_opts if safe_v and video_opts else PLAYABLE_V,
-            audio_opts if safe_a and audio_opts else PLAYABLE_A)
+
+    if safe_v and video_opts:
+        resolved_v = video_opts
+    elif ffmpeg:
+        resolved_v = get_optimal_export_vopts(ffmpeg, resolution=resolution, fps=fps)
+    else:
+        resolved_v = PLAYABLE_V
+
+    resolved_a = audio_opts if (safe_a and audio_opts) else PLAYABLE_A
+    return resolved_v, resolved_a
 
 
 def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str,
                     resolution: str, fps: int, mastering: bool, progress_cb=None,
                     video_opts: str | None = None, audio_opts: str | None = None,
                     video_track_count: int = 4, ducking: bool = True,
-                    speech_intervals: list[tuple[float, float]] | None = None) -> tuple[bool, str]:
+                    speech_intervals: list[tuple[float, float]] | None = None,
+                    hwaccel: str | bool = "auto") -> tuple[bool, str]:
     try:
         w, h = (int(x) for x in resolution.lower().split("x"))
     except ValueError:
@@ -530,7 +624,8 @@ def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str
     if not usable_clips:
         return False, "No valid media on timeline"
 
-    vopts, aopts = _playable_opts(video_opts, audio_opts)
+    vopts, aopts = _playable_opts(video_opts, audio_opts, ffmpeg=ffmpeg, resolution=resolution, fps=fps)
+    hw_in = ["-hwaccel", "auto"] if hwaccel else []
     work = Path(tempfile.mkdtemp(prefix="lsj_export_"))
     last_log = ""
 
@@ -604,6 +699,7 @@ def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str
                 vf = clip_vf(clip, w, h, int(fps), mastering) + ",format=yuv420p"
                 cmd_v = [
                     ffmpeg, "-y",
+                    *hw_in,
                     "-ss", f"{src:.3f}", "-t", f"{dur:.3f}", "-i", media["path"],
                     "-vf", vf, "-an",
                     *vopts.split(),
@@ -724,7 +820,7 @@ def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str
                     x_val = int(round(float(oclip.get("x") or 0)))
                     y_val = int(round(float(oclip.get("y") or 0)))
 
-                    ov_inputs.extend(["-ss", f"{o_src:.3f}", "-t", f"{o_dur:.3f}", "-i", o_media["path"]])
+                    ov_inputs.extend([*hw_in, "-ss", f"{o_src:.3f}", "-t", f"{o_dur:.3f}", "-i", o_media["path"]])
                     in_idx = k + 1
 
                     vf_items = [f"setpts=PTS-STARTPTS+{o_start:.3f}/TB"]

@@ -1298,6 +1298,13 @@
             "ffmpegOpts": "-c:v hevc_qsv -profile:v main -preset medium -max_frame_size 65534 -pix_fmt nv12 -g 30"
         },
         {
+            "id": "h264-win-mf",
+            "rebrandedName": "Elite H264 Hardware (Media Foundation)",
+            "originalEncoder": "H264 MF",
+            "profile": "High",
+            "ffmpegOpts": "-c:v h264_mf -b:v 25M -pix_fmt yuv420p -g 30"
+        },
+        {
             "id": "h265-main10-win-intel",
             "rebrandedName": "Elite H265 Main10",
             "originalEncoder": "H265",

@@ -332,10 +332,11 @@ class EditorAPI:
         PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         VAULT_DIR.mkdir(parents=True, exist_ok=True)
-        self.export_encoder = "libx264"
+        self.export_encoder = "auto"
         self.export_audio = "aac"
+        self.hwaccel = "auto"
         self.window = None
-        self.ffmpeg, self.ffprobe = shutil.which("ffmpeg"), shutil.which("ffprobe")
+        self.ffmpeg, self.ffprobe = resolve_ffmpeg()
         self.reload_registry()
         self.lock = threading.Lock()
         self._reset_project(project_name)
@@ -724,6 +725,12 @@ class EditorAPI:
             f"{len(self.encoders)} encoders, {len(self.codecs)} audio"
         )
         return self.get_state() if hasattr(self, "clips") else None
+
+    def get_hardware_acceleration_status(self) -> dict:
+        """Returns detected GPU hardware encoders and acceleration status."""
+        if not self.ffmpeg:
+            return {"hardware_available": False, "error": "FFmpeg binary not resolved"}
+        return nle.detect_hardware_encoders(self.ffmpeg)
 
     def model_by_name(self, name: str) -> dict | None:
         return next((m for m in self.models if m.get("rebrandedName") == name or m.get("id") == name), None)
@@ -1593,13 +1600,14 @@ class EditorAPI:
 
         enc = next((e for e in self.encoders if e.get("id") == self.export_encoder or e.get("rebrandedName") == self.export_encoder), None)
         aud = next((a for a in self.codecs if a.get("id") == self.export_audio or a.get("rebrandedName") == self.export_audio), None)
-        use_reg = enc and "h264" in str(self.export_encoder).lower()
+        use_reg = enc and any(k in str(self.export_encoder).lower() for k in ("h264", "h265", "hevc", "nvenc", "qsv", "mf", "amf"))
         ok, msg = nle.export_timeline(
             self.ffmpeg, self.timeline, media_by_id, dest, resolution, int(fps), mastering, progress,
             video_opts=(enc or {}).get("ffmpegOpts") if use_reg else None,
             audio_opts=(aud or {}).get("ffmpegOpts") if use_reg else None,
             video_track_count=self.video_track_count,
             ducking=getattr(self, "audio_ducking", True),
+            hwaccel=getattr(self, "hwaccel", "auto"),
         )
         self.is_processing = False
         self.processing_progress = 1.0 if ok else 0.0
