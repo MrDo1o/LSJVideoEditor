@@ -110,9 +110,14 @@ def clip_vf(clip: dict, w: int, h: int, fps: int, mastering: bool) -> str:
     scale = float(clip.get("scale") or 1.0)
     rotate = float(clip.get("rotate") or 0.0)
     opacity = float(clip.get("opacity") or 1.0)
+    track = int(clip.get("track") or 0)
     if scale != 1.0:
         parts.append(f"scale=iw*{scale}:ih*{scale}")
-        parts.append(f"crop={w}:{h}")
+        if track == 0:
+            if scale > 1.0:
+                parts.append(f"crop={w}:{h}")
+            elif scale < 1.0:
+                parts.append(f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2")
     if rotate:
         parts.append(f"rotate={rotate}*PI/180:fillcolor=black")
     if opacity < 1.0:
@@ -607,18 +612,73 @@ def export_timeline(ffmpeg: str, clips: list[dict], media_by_id: dict, dest: str
 
             vlisting = work / "vconcat.txt"
             vlisting.write_text("".join(f"file '{p.as_posix()}'\n" for p in vpieces), encoding="utf-8")
+            base_video = work / "base_video.mp4"
             code, log = run([
                 ffmpeg, "-y", "-f", "concat", "-safe", "0", "-i", str(vlisting),
-                "-c:v", "copy", str(visual_master)
+                "-c:v", "copy", str(base_video)
             ], timeout=600)
-            if code != 0 or not visual_master.is_file():
+            if code != 0 or not base_video.is_file():
                 code, log = run([
                     ffmpeg, "-y", "-f", "concat", "-safe", "0", "-i", str(vlisting),
                     *vopts.split(),
-                    str(visual_master)
+                    str(base_video)
                 ], timeout=1200)
-            if code != 0 or not visual_master.is_file():
-                return False, f"visual concat failed: {log[-400:]}"
+            if code != 0 or not base_video.is_file():
+                return False, f"visual base concat failed: {log[-400:]}"
+
+            # Step 2: Multi-Track Video Compositing (Overlays, PIP, B-roll on Tracks 1..N)
+            overlay_clips = [c for c in visual_clips if int(c.get("track") or 0) > 0]
+            if not overlay_clips:
+                visual_master = base_video
+            else:
+                overlay_clips = sorted(overlay_clips, key=lambda c: (int(c.get("track") or 1), float(c.get("start") or 0)))
+                ov_inputs = ["-i", str(base_video)]
+                ov_filt_parts = []
+                last_label = "0:v"
+
+                for k, oclip in enumerate(overlay_clips):
+                    o_media = media_by_id[oclip["mediaId"]]
+                    o_src = max(0.0, float(oclip.get("sourceIn") or 0))
+                    o_dur = max(0.05, float(oclip.get("duration") or 1))
+                    o_start = max(0.0, float(oclip.get("start") or 0))
+                    o_end = o_start + o_dur
+
+                    scale_val = float(oclip.get("scale") or 1.0)
+                    opacity_val = max(0.0, min(1.0, float(oclip.get("opacity") or 1.0)))
+                    x_val = int(round(float(oclip.get("x") or 0)))
+                    y_val = int(round(float(oclip.get("y") or 0)))
+
+                    ov_inputs.extend(["-ss", f"{o_src:.3f}", "-t", f"{o_dur:.3f}", "-i", o_media["path"]])
+                    in_idx = k + 1
+
+                    vf_items = [f"setpts=PTS-STARTPTS+{o_start:.3f}/TB"]
+                    clip_filters = clip_vf(oclip, w, h, int(fps), mastering)
+                    if clip_filters:
+                        clean_f = ",".join([f for f in clip_filters.split(",") if not f.startswith("fps=")])
+                        if clean_f:
+                            vf_items.append(clean_f)
+                    vf_items.append("format=rgba")
+                    vf_chain = ",".join(vf_items)
+                    ov_filt_parts.append(
+                        f"[{in_idx}:v]{vf_chain}[delayed_ov_{k}];"
+                        f"[{last_label}][delayed_ov_{k}]overlay=x={x_val}:y={y_val}:enable='between(t,{o_start:.3f},{o_end:.3f})':eof_action=pass[ov_stage_{k}]"
+                    )
+                    last_label = f"ov_stage_{k}"
+
+                ov_filt_parts.append(f"[{last_label}]format=yuv420p[final_visual]")
+                ov_filter_graph = ";".join(ov_filt_parts)
+
+                cmd_composite = [
+                    ffmpeg, "-y", *ov_inputs,
+                    "-filter_complex", ov_filter_graph,
+                    "-map", "[final_visual]",
+                    *vopts.split(),
+                    "-t", f"{total_timeline_dur:.3f}",
+                    str(visual_master)
+                ]
+                code, log = run(cmd_composite, timeout=1800)
+                if code != 0 or not visual_master.is_file():
+                    return False, f"video overlay compositing failed: {log[-400:]}"
 
         if progress_cb:
             progress_cb(0.65)
