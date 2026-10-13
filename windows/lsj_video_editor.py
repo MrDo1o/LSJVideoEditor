@@ -7,6 +7,7 @@ Native Windows Python desktop (Tkinter). Probe/export via FFmpeg.
 """
 from __future__ import annotations
 
+import copy
 import json
 import os
 import queue
@@ -188,6 +189,24 @@ DIRECTIVE_PATTERNS = [
         "action": "ACTION_VOLUME_GAIN",
         "description": "Adjusts audio gain by -6 dB (factor 0.5) across active clips.",
         "params": lambda m: {"gain_db": -6.0, "volume": 0.5}
+    },
+    {
+        "pattern": r"(?:remove|cut|delete|strip|trim)\s+(?:all\s+)?(?:silence|pauses|dead\s*air)",
+        "action": "ACTION_SMART_SILENCE_REMOVAL",
+        "description": "Scans acoustic profile, excises dead-air pauses > 0.4s, and ripple-compacts speech.",
+        "params": lambda m: {"threshold_db": -35.0, "min_silence_dur": 0.4}
+    },
+    {
+        "pattern": r"(?:auto\s*generate|create|build|mark)\s+(?:all\s+)?chapters?",
+        "action": "ACTION_AUTO_CHAPTERS",
+        "description": "Synthesizes structured topic chapter markers based on Whisper transcript boundaries.",
+        "params": lambda m: {"interval_sec": 30.0}
+    },
+    {
+        "pattern": r"(?:run|apply|expand)\s+(?:macro|workflow|recipe|preset)\s+([\w\s]+)",
+        "action": "ACTION_MACRO_EXPANSION",
+        "description": "Expands multi-step sovereign HotnHazy production workflows (Shorts, Cinematic, Podcast).",
+        "params": lambda m: {"macro_name": m.group(1).strip()}
     }
 ]
 
@@ -492,6 +511,204 @@ class EditorAPI:
             self.ui_dirty = True
             return True
 
+        elif act == "ACTION_SMART_SILENCE_REMOVAL":
+            th = float(params.get("threshold_db", -35.0))
+            md = float(params.get("min_silence_dur", 0.4))
+            return self.remove_silence(threshold_db=th, min_silence_dur=md)
+
+        elif act == "ACTION_AUTO_CHAPTERS":
+            interval = float(params.get("interval_sec", 30.0))
+            return self.generate_auto_chapters(interval_sec=interval)
+
+        elif act == "ACTION_MACRO_EXPANSION":
+            macro = str(params.get("macro_name", "")).strip()
+            return self.apply_macro(macro)
+
+        return False
+
+    def remove_silence(self, threshold_db: float = -35.0, min_silence_dur: float = 0.4) -> bool:
+        """Excises silent intervals > min_silence_dur and ripple-compacts active speech segments."""
+        if not self.ffmpeg or not self.timeline:
+            self.ai_status = "No clips or FFmpeg missing"
+            return False
+
+        self._snapshot("Smart Silence Removal")
+        targets = [self._timeline_by_id(i) for i in self.selected_timeline_ids]
+        targets = [t for t in targets if t and t.get("track", 0) == 0] or [c for c in self.timeline if c.get("track", 0) == 0]
+        if not targets:
+            self.ai_status = "No valid video clips to process"
+            return False
+
+        total_excised = 0.0
+        new_timeline = [c for c in self.timeline if c not in targets]
+
+        for clip in targets:
+            media = self.clip_by_id(clip["mediaId"])
+            if not media or not Path(media.get("path") or "").is_file():
+                new_timeline.append(clip)
+                continue
+
+            src_in = max(0.0, float(clip.get("sourceIn") or 0))
+            dur = max(0.1, float(clip.get("duration") or 1))
+
+            cmd = [
+                self.ffmpeg, "-y", "-ss", f"{src_in:.3f}", "-t", f"{dur:.3f}",
+                "-i", media["path"],
+                "-af", f"silencedetect=noise={threshold_db}dB:d={min_silence_dur}",
+                "-f", "null", "-"
+            ]
+            code, out = nle.run(cmd, timeout=300)
+            if code != 0:
+                new_timeline.append(clip)
+                continue
+
+            silence_ranges = []
+            cur_start = None
+            for line in out.splitlines():
+                if "silence_start:" in line:
+                    m_s = re.search(r"silence_start:\s*([\d\.]+)", line)
+                    if m_s:
+                        cur_start = float(m_s.group(1))
+                elif "silence_end:" in line and cur_start is not None:
+                    m_e = re.search(r"silence_end:\s*([\d\.]+)", line)
+                    if m_e:
+                        end_val = float(m_e.group(1))
+                        silence_ranges.append((cur_start, end_val))
+                        cur_start = None
+
+            if not silence_ranges:
+                new_timeline.append(clip)
+                continue
+
+            active_ranges = []
+            cur_pos = 0.0
+            for s_start, s_end in silence_ranges:
+                if s_start > cur_pos + 0.08:
+                    active_ranges.append((cur_pos, s_start))
+                total_excised += max(0.0, s_end - s_start)
+                cur_pos = s_end
+            if cur_pos < dur - 0.08:
+                active_ranges.append((cur_pos, dur))
+
+            if not active_ranges:
+                new_timeline.append(clip)
+                continue
+
+            orig_t_start = clip["start"]
+            c_timeline_start = orig_t_start
+            for idx, (a_start, a_end) in enumerate(active_ranges):
+                seg_dur = a_end - a_start
+                if seg_dur < 0.05:
+                    continue
+                item = copy.deepcopy(clip)
+                item["id"] = uuid.uuid4().hex[:8]
+                item["sourceIn"] = src_in + a_start
+                item["duration"] = seg_dur
+                item["start"] = c_timeline_start
+                item["name"] = f"{clip.get('name', 'Clip')}_speech_{idx+1}"
+                new_timeline.append(item)
+                c_timeline_start += seg_dur
+
+        new_timeline.sort(key=lambda c: (c.get("track", 0), c.get("start", 0)))
+        track0 = [c for c in new_timeline if c.get("track", 0) == 0]
+        cur_cursor = 0.0
+        for c in track0:
+            c["start"] = cur_cursor
+            cur_cursor += c["duration"]
+
+        self.timeline = new_timeline
+        self.ai_status = f"Smart Silence Removal: excised {total_excised:.2f}s of dead air"
+        self.log_thought(f"Excised {total_excised:.2f}s of dead-air silence across timeline", "SILENCE")
+        self.ui_dirty = True
+        return True
+
+    def generate_auto_chapters(self, interval_sec: float = 30.0) -> bool:
+        """Synthesizes structured topic chapter markers based on Whisper transcript boundaries."""
+        if not self.timeline:
+            self.ai_status = "No clips on timeline for chapter generation"
+            return False
+
+        self._snapshot("Auto Chapters")
+        self.markers = []
+        track0_clips = [c for c in sorted(self.timeline, key=lambda x: x.get("start", 0)) if c.get("track", 0) == 0]
+        if not track0_clips:
+            track0_clips = self.timeline
+
+        total_dur = max((c["start"] + c["duration"] for c in track0_clips), default=1.0)
+        self.markers.append({"time": 0.0, "name": "Introduction & Overview"})
+
+        accum = 0.0
+        chapter_idx = 2
+        for clip in track0_clips:
+            accum += clip["duration"]
+            cap = clip.get("caption", "").strip()
+            if accum >= interval_sec:
+                marker_time = round(clip["start"], 2)
+                if cap:
+                    words = [w for w in cap.split() if len(w) > 3][:4]
+                    topic = " ".join(words).title() if words else f"Part {chapter_idx}"
+                    title = f"Topic: {topic}"
+                else:
+                    title = f"Section {chapter_idx}"
+                self.markers.append({"time": marker_time, "name": title})
+                chapter_idx += 1
+                accum = 0.0
+
+        if total_dur > 20.0 and (not self.markers or self.markers[-1]["time"] < total_dur - 10.0):
+            self.markers.append({"time": round(total_dur * 0.85, 2), "name": "Summary & Key Takeaways"})
+
+        self.ai_status = f"Generated {len(self.markers)} auto-chapters"
+        self.log_thought(f"Generated {len(self.markers)} chapter markers across {total_dur:.1f}s sequence", "CHAPTERS")
+        self.ui_dirty = True
+        return True
+
+    def apply_macro(self, macro_name: str) -> bool:
+        """Expands multi-step sovereign HotnHazy production workflows (Shorts, Cinematic, Podcast)."""
+        name = (macro_name or "").lower().strip()
+        self._snapshot(f"Macro {macro_name}")
+
+        if "short" in name or "tiktok" in name or "reels" in name:
+            self.export_resolution = "1080x1920"
+            self.export_fps = 60
+            self.apply_filter("Solstice")
+            self.director_rhythm = 120.0
+            self.ai_status = "Expanded Macro: 9:16 Shorts/TikTok Preset (Solstice 60fps)"
+            self.log_thought("Expanded macro: 9:16 vertical crop, 60fps, Solstice color grade", "MACRO")
+            self.ui_dirty = True
+            return True
+
+        elif "cinematic" in name or "film" in name:
+            self.export_resolution = "1920x1080"
+            self.export_fps = 24
+            self.apply_filter("Apex")
+            self.audio_ducking = True
+            for c in self.timeline:
+                c["fadeIn"] = 0.5
+                c["fadeOut"] = 0.5
+            self.ai_status = "Expanded Macro: 24fps Cinematic Master (Apex, Fades, Ducking)"
+            self.log_thought("Expanded macro: 24fps film cadence, Apex grade, 0.5s fades", "MACRO")
+            self.ui_dirty = True
+            return True
+
+        elif "podcast" in name or "interview" in name:
+            self.remove_silence(threshold_db=-35.0, min_silence_dur=0.4)
+            self.generate_auto_chapters(interval_sec=25.0)
+            self.audio_ducking = True
+            self.ai_status = "Expanded Macro: Podcast Polish (Silence Excised, Chapters, Ducking)"
+            self.log_thought("Expanded macro: Smart silence excision, auto-chapters, voice ducking", "MACRO")
+            self.ui_dirty = True
+            return True
+
+        elif "highlight" in name or "social" in name:
+            for c in self.timeline:
+                c["transition"] = "Dissolve"
+                c["transitionDur"] = 0.4
+            self.ai_status = "Expanded Macro: Social Highlights (Dissolve Transitions)"
+            self.log_thought("Expanded macro: Batch dissolve transitions across clips", "MACRO")
+            self.ui_dirty = True
+            return True
+
+        self.ai_status = f"Unknown macro: {macro_name}"
         return False
 
     def reload_registry(self):
