@@ -309,10 +309,21 @@ def main():
     parser = argparse.ArgumentParser(description="SSK Sovereign NLE Director Agent")
     parser.add_argument("--prompt", type=str, default="Create a 5 minute high-energy highlight reel from the media bin and export it", help="Instruction for SSK agent")
     parser.add_argument("--files", nargs="*", default=None, help="Paths of media files to import")
+    parser.add_argument("--filelist", type=str, default=None, help="Text file containing paths of media files to import (one per line)")
     parser.add_argument("--output", type=str, default=None, help="Destination export path")
     args = parser.parse_args()
 
-    asyncio.run(run_ssk_agent(prompt=args.prompt, files=args.files, output=args.output))
+    all_files = list(args.files) if args.files else []
+    if args.filelist:
+        fl_path = Path(args.filelist)
+        if fl_path.is_file():
+            with open(fl_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip().strip('"\'')
+                    if line and not line.startswith("#"):
+                        all_files.append(line)
+
+    asyncio.run(run_ssk_agent(prompt=args.prompt, files=all_files if all_files else None, output=args.output))
 
 
 if __name__ == "__main__":
