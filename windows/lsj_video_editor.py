@@ -24,6 +24,7 @@ from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 
 import engine as nle
+import edit_plan
 
 ROOT = Path(__file__).resolve().parent
 REPO_EDITOR = ROOT.parent
@@ -377,6 +378,11 @@ class EditorAPI:
         self.last_ke_reply = ""
         self.ke_log: list[str] = []
         self.pending_voice_directives: list[dict] = []
+        self.active_edit_plan = None
+        self.pending_plan_approval = None
+        self.applied_plan_hash = None
+        self.applied_plan_id = None
+        self.applied_plan_version = None
         self._load_cached_ssk_log()
         threading.Thread(target=self._autosave_loop, daemon=True).start()
         threading.Thread(target=self._ke_loop, daemon=True).start()
@@ -387,7 +393,13 @@ class EditorAPI:
         self.project_name = name
         self.clips: list[dict] = []
         self.timeline: list[dict] = []
+        self.markers = []
         self.pending_voice_directives = []
+        self.active_edit_plan = None
+        self.pending_plan_approval = None
+        self.applied_plan_hash = None
+        self.applied_plan_id = None
+        self.applied_plan_version = None
 
     def _load_cached_ssk_log(self):
         """Restore prior session thoughts from on-disk thought vault."""
@@ -881,9 +893,42 @@ class EditorAPI:
     def _timeline_by_id(self, tid: str) -> dict | None:
         return next((c for c in self.timeline if c["id"] == tid), None)
 
+    def _capture_state(self) -> dict:
+        return {
+            "timeline": copy.deepcopy(self.timeline),
+            "markers": copy.deepcopy(self.markers),
+            "selected_timeline_ids": list(self.selected_timeline_ids),
+            "selected_clip_id": self.selected_clip_id,
+            "current_filter": self.current_filter,
+            "export_resolution": self.export_resolution,
+            "export_fps": self.export_fps,
+            "audio_ducking": self.audio_ducking,
+            "applied_plan_hash": self.applied_plan_hash,
+            "applied_plan_id": self.applied_plan_id,
+            "applied_plan_version": self.applied_plan_version,
+        }
+
+    def _restore_state(self, state):
+        if isinstance(state, list):
+            self.timeline = copy.deepcopy(state)
+        elif isinstance(state, dict):
+            self.timeline = copy.deepcopy(state.get("timeline", []))
+            self.markers = copy.deepcopy(state.get("markers", []))
+            self.selected_timeline_ids = list(state.get("selected_timeline_ids", []))
+            self.selected_clip_id = state.get("selected_clip_id")
+            self.current_filter = state.get("current_filter", "Original")
+            self.export_resolution = state.get("export_resolution", "1920x1080")
+            self.export_fps = state.get("export_fps", 30)
+            self.audio_ducking = state.get("audio_ducking", True)
+            self.applied_plan_hash = state.get("applied_plan_hash")
+            self.applied_plan_id = state.get("applied_plan_id")
+            self.applied_plan_version = state.get("applied_plan_version")
+        self.pending_plan_approval = None
+
     def _snapshot(self, action: str):
-        self.undo_stack.append(json.loads(json.dumps(self.timeline)))
+        self.undo_stack.append(self._capture_state())
         self.redo_stack.clear()
+        self.pending_plan_approval = None  # Invalidate pending approvals
         stamp = time.strftime("%H:%M:%S")
         self.history.insert(0, f"[{stamp}] {action}")
         self.history = self.history[:80]
@@ -1397,16 +1442,18 @@ class EditorAPI:
     def undo(self):
         if not self.undo_stack:
             return self.get_state()
-        self.redo_stack.append(json.loads(json.dumps(self.timeline)))
-        self.timeline = self.undo_stack.pop()
+        self.redo_stack.append(self._capture_state())
+        state = self.undo_stack.pop()
+        self._restore_state(state)
         self.ai_status = "Undo"
         return self.get_state()
 
     def redo(self):
         if not self.redo_stack:
             return self.get_state()
-        self.undo_stack.append(json.loads(json.dumps(self.timeline)))
-        self.timeline = self.redo_stack.pop()
+        self.undo_stack.append(self._capture_state())
+        state = self.redo_stack.pop()
+        self._restore_state(state)
         self.ai_status = "Redo"
         return self.get_state()
 
@@ -2370,6 +2417,167 @@ class EditorAPI:
                     self.save_project()
             except Exception:
                 pass
+
+    def get_media_manifest_hash(self) -> str:
+        """Returns the canonical SHA-256 hash of all imported media in the editor bin."""
+        return edit_plan.compute_media_manifest_hash(self.clips)
+
+    def get_timeline_revision(self) -> str:
+        """Returns the canonical SHA-256 hash representing current timeline state."""
+        return edit_plan.compute_timeline_revision(self.timeline, self.markers)
+
+    def create_edit_plan(
+        self,
+        segments: list[edit_plan.PlanSegment] | tuple[edit_plan.PlanSegment, ...],
+        markers: list[edit_plan.PlanMarker] | tuple[edit_plan.PlanMarker, ...] | None = None,
+        audio_tracks: list[edit_plan.PlanAudioTrack] | tuple[edit_plan.PlanAudioTrack, ...] | None = None,
+        constraints: edit_plan.PlanConstraints | None = None,
+        plan_id: str | None = None,
+        plan_version: int = 1,
+    ) -> edit_plan.EditPlan:
+        """
+        Creates an immutable EditPlan frozen record bound to current media manifest and timeline revision.
+        Leaves the working timeline completely unchanged.
+        """
+        pid = plan_id or f"plan_{uuid.uuid4().hex[:12]}"
+        plan = edit_plan.EditPlan(
+            plan_id=pid,
+            plan_version=plan_version,
+            media_manifest_hash=self.get_media_manifest_hash(),
+            timeline_revision=self.get_timeline_revision(),
+            segments=tuple(segments),
+            markers=tuple(markers or ()),
+            audio_tracks=tuple(audio_tracks or ()),
+            constraints=constraints or edit_plan.PlanConstraints(),
+        )
+        self.active_edit_plan = plan
+        return plan
+
+    def revise_edit_plan(
+        self,
+        base_plan: edit_plan.EditPlan,
+        segments: list[edit_plan.PlanSegment] | tuple[edit_plan.PlanSegment, ...] | None = None,
+        markers: list[edit_plan.PlanMarker] | tuple[edit_plan.PlanMarker, ...] | None = None,
+        audio_tracks: list[edit_plan.PlanAudioTrack] | tuple[edit_plan.PlanAudioTrack, ...] | None = None,
+        constraints: edit_plan.PlanConstraints | None = None,
+    ) -> edit_plan.EditPlan:
+        """
+        Creates a new immutable revision of an EditPlan, leaving the base plan and working timeline unchanged.
+        """
+        revised_plan = edit_plan.EditPlan(
+            plan_id=base_plan.plan_id,
+            plan_version=base_plan.plan_version + 1,
+            media_manifest_hash=self.get_media_manifest_hash(),
+            timeline_revision=self.get_timeline_revision(),
+            segments=tuple(segments) if segments is not None else base_plan.segments,
+            markers=tuple(markers) if markers is not None else base_plan.markers,
+            audio_tracks=tuple(audio_tracks) if audio_tracks is not None else base_plan.audio_tracks,
+            constraints=constraints if constraints is not None else base_plan.constraints,
+        )
+        self.active_edit_plan = revised_plan
+        return revised_plan
+
+    def validate_edit_plan(self, plan: edit_plan.EditPlan) -> tuple[bool, list[str]]:
+        """
+        Validates an EditPlan against the current media manifest and timeline without mutating state.
+        """
+        return edit_plan.validate_plan(plan, self.clips, self.timeline)
+
+    def approve_edit_plan(self, plan: edit_plan.EditPlan, approver: str = "user") -> edit_plan.PlanApproval:
+        """
+        Generates an immutable PlanApproval cryptographically binding plan content hash,
+        media manifest hash, and timeline revision. Rejects invalid plans. Leaves timeline unchanged.
+        """
+        valid, errors = self.validate_edit_plan(plan)
+        if not valid:
+            raise ValueError(f"Cannot approve invalid plan: {'; '.join(errors)}")
+        approval = edit_plan.PlanApproval(
+            plan_id=plan.plan_id,
+            plan_version=plan.plan_version,
+            plan_content_hash=plan.content_hash(),
+            media_manifest_hash=plan.media_manifest_hash,
+            timeline_revision=plan.timeline_revision,
+            approved_by=approver,
+            approved_at=time.time(),
+        )
+        self.pending_plan_approval = approval
+        return approval
+
+    def apply_approved_plan(
+        self,
+        plan: edit_plan.EditPlan,
+        approval: edit_plan.PlanApproval,
+        injected_failure_hook=None,
+    ) -> dict:
+        """
+        Atomically applies an approved plan to the working timeline under a thread lock.
+        Validates approval binding, stale drift, boundaries, and collisions before mutating.
+        Guarantees idempotency (returns 'already_applied' without duplicate undo entries).
+        On mid-application failure, rolls back cleanly leaving state and undo history unchanged.
+        """
+        with self.lock:
+            # 1. Idempotency check: repeated application returns 'already_applied' without duplicate edits or undo entries
+            if self.applied_plan_hash == plan.content_hash():
+                return {
+                    "status": "already_applied",
+                    "plan_id": plan.plan_id,
+                    "plan_version": plan.plan_version,
+                    "applied_plan_hash": self.applied_plan_hash,
+                    "timeline": self.timeline,
+                }
+
+            # 2. Approval content & identity validation
+            if not approval.is_valid_for(plan):
+                raise ValueError("Approval does not match plan content hash or plan identity.")
+
+            # 3. Drift / staleness validation
+            curr_media_hash = self.get_media_manifest_hash()
+            curr_timeline_rev = self.get_timeline_revision()
+            if approval.is_stale(curr_media_hash, curr_timeline_rev):
+                raise ValueError(
+                    f"Approval is stale: editor state has drifted since approval "
+                    f"(media_drift={approval.media_manifest_hash != curr_media_hash}, "
+                    f"timeline_drift={approval.timeline_revision != curr_timeline_rev})."
+                )
+
+            # 4. Plan validation against current media manifest
+            valid, errors = self.validate_edit_plan(plan)
+            if not valid:
+                raise ValueError(f"Plan validation failed before application: {'; '.join(errors)}")
+
+            # 5. In-memory timeline compilation
+            compiled_timeline, compiled_markers = edit_plan.compile_plan_to_timeline(plan, self.clips)
+
+            # 6. Atomic mutation with snapshot and rollback protection
+            self._snapshot(f"Apply Plan {plan.plan_id} v{plan.plan_version}")
+            try:
+                if injected_failure_hook is not None:
+                    injected_failure_hook()
+
+                self.timeline = compiled_timeline
+                if compiled_markers:
+                    self.markers = compiled_markers
+                self.applied_plan_hash = plan.content_hash()
+                self.applied_plan_id = plan.plan_id
+                self.applied_plan_version = plan.plan_version
+                self.pending_plan_approval = None
+                self.ai_status = f"Applied Plan {plan.plan_id} v{plan.plan_version}"
+                self.ui_dirty = True
+                return {
+                    "status": "applied",
+                    "plan_id": plan.plan_id,
+                    "plan_version": plan.plan_version,
+                    "applied_plan_hash": self.applied_plan_hash,
+                    "timeline": self.timeline,
+                }
+            except Exception as exc:
+                # Mid-application failure rollback: restore state and pop the undo entry
+                if self.undo_stack:
+                    saved_state = self.undo_stack.pop()
+                    self._restore_state(saved_state)
+                if self.history:
+                    self.history.pop(0)
+                raise exc
 
 
 def _no_window() -> int:
