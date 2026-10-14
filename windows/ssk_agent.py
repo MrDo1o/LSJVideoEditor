@@ -238,12 +238,15 @@ async def run_ssk_agent(prompt: str, files: list[str] | None = None, output: str
         import_res = import_media(files)
         print(import_res)
 
-    # 1. Check if a local OpenAI-compatible server (Ollama, LM Studio, vLLM) is available
-    base_url = os.environ.get("LSJ_LLM_URL") or os.environ.get("LLAMA_URL") or "http://127.0.0.1:11434/v1"
-    model_name = os.environ.get("KE_BRIDGE_MODEL") or "gemma4:26b"
+    # 1. Check for Dokk/Kweenesha local model or OpenAI-compatible server
+    base_url = os.environ.get("LSJ_LLM_URL") or os.environ.get("LLAMA_URL") or "http://127.0.0.1:8081/v1"
+    model_name = os.environ.get("KE_BRIDGE_MODEL") or os.environ.get("SSK_MODEL") or "ssk-open-disambiguation-v1"
+    local_model_path = Path(r"C:\Users\found\models\Kweenesha-Base-v1.gguf")
 
     print(f"\n[SSK] Initializing Sovereign Director Agent via Google Antigravity SDK...")
-    print(f"      Backend Target: {base_url} (Model: {model_name})")
+    print(f"      Model Lineage: {model_name} (Protocol IOPQ-08 Locked Baseline)")
+    print(f"      Local Model Checkpoint: {local_model_path.name if local_model_path.is_file() else 'Online'}")
+    print(f"      Backend Target: {base_url}")
 
     server_live = False
     try:
@@ -305,9 +308,57 @@ async def run_ssk_agent(prompt: str, files: list[str] | None = None, output: str
         print(get_timeline_status())
 
 
+async def interactive_session(initial_files=None):
+    print("=" * 76)
+    print("  SOVEREIGN SPEECH KIT (SSK) — Autonomous NLE Director")
+    print("  Engine: Local GPU (Intel QSV / CUDA) | Zero Cloud Censorship")
+    print("=" * 76)
+
+    api = get_api()
+    candidates = list(initial_files) if initial_files else []
+    for check_path in [Path("my_clips.txt"), REPO_ROOT / "my_clips.txt", Path.cwd() / "my_clips.txt"]:
+        if check_path.is_file():
+            with open(check_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    l = line.strip().strip('"\'')
+                    if l and not l.startswith("#"):
+                        candidates.append(l)
+            print(f"[*] Auto-detected clip manifest: {check_path.name} ({len(candidates)} clips)")
+            break
+
+    if candidates and not api.clips:
+        print(import_media(candidates))
+
+    print(f"\n[SSK Ready] Media bin contains {len(api.clips)} clips. Active timeline: {len(api.timeline)} cuts.")
+    print("\nCommands you can type:")
+    print("  - 'mashup 5 min' or 'highlight reel' -> Assembles 5-minute dynamic montage")
+    print("  - 'pulse'                            -> High-energy rapid action cuts")
+    print("  - 'beat'                             -> Musical beat-synced cuts")
+    print("  - 'silence'                          -> Excises dead air with 0.00ms ripple sync")
+    print("  - 'export'                           -> Renders master to Videos/ folder via GPU")
+    print("  - 'status'                           -> Shows timeline breakdown and duration")
+    print("  - 'clear'                            -> Empties timeline for fresh cut")
+    print("  - 'exit'                             -> Quits session\n")
+
+    while True:
+        try:
+            user_prompt = input("SSK > ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n[SSK] Session terminated. Goodbye!")
+            break
+
+        if not user_prompt:
+            continue
+        if user_prompt.lower() in ("exit", "quit", "q"):
+            print("[SSK] Session terminated. Goodbye!")
+            break
+
+        await run_ssk_agent(prompt=user_prompt)
+
+
 def main():
     parser = argparse.ArgumentParser(description="SSK Sovereign NLE Director Agent")
-    parser.add_argument("--prompt", type=str, default="Create a 5 minute high-energy highlight reel from the media bin and export it", help="Instruction for SSK agent")
+    parser.add_argument("--prompt", type=str, default=None, help="Instruction for SSK agent (if omitted, starts interactive chat)")
     parser.add_argument("--files", nargs="*", default=None, help="Paths of media files to import")
     parser.add_argument("--filelist", type=str, default=None, help="Text file containing paths of media files to import (one per line)")
     parser.add_argument("--output", type=str, default=None, help="Destination export path")
@@ -323,7 +374,10 @@ def main():
                     if line and not line.startswith("#"):
                         all_files.append(line)
 
-    asyncio.run(run_ssk_agent(prompt=args.prompt, files=all_files if all_files else None, output=args.output))
+    if args.prompt:
+        asyncio.run(run_ssk_agent(prompt=args.prompt, files=all_files if all_files else None, output=args.output))
+    else:
+        asyncio.run(interactive_session(initial_files=all_files if all_files else None))
 
 
 if __name__ == "__main__":

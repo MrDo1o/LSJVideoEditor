@@ -469,9 +469,13 @@ def build_mashup(clips: list[dict], target: float = 180.0) -> list[dict]:
         return []
     out = []
     t = 0.0
+    pool = list(usable)
+    random.shuffle(pool)
     i = 0
     while t < target:
-        media = usable[i % len(usable)]
+        if i > 0 and i % len(pool) == 0:
+            random.shuffle(pool)
+        media = pool[i % len(pool)]
         factor = 1.0 - (t / target) * 0.7
         dur = max(0.6, min(media["duration"], (target / max(8, len(usable))) * factor * 2))
         max_start = max(0.0, media["duration"] - dur)
