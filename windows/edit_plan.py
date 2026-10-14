@@ -328,12 +328,18 @@ class EditPlan:
 
 @dataclass(frozen=True)
 class PlanApproval:
-    """Cryptographically bound confirmation authorizing atomic application of a specific EditPlan."""
+    """Cryptographically bound confirmation authorizing atomic application of a specific EditPlan.
+    
+    AUDIT NOTE: `approved_by` is an audit attribution identifier (e.g. operator/agent identity),
+    NOT an asymmetric cryptographic digital signature. Cryptographic integrity and tampering
+    detection are strictly enforced via `plan_content_hash`, `media_manifest_hash`, and `timeline_revision`.
+    """
     plan_id: str
     plan_version: int
     plan_content_hash: str
     media_manifest_hash: str
     timeline_revision: str
+    approval_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     approved_by: str = "operator"
     approved_at: float = field(default_factory=time.time)
 

@@ -383,6 +383,7 @@ class EditorAPI:
         self.applied_plan_hash = None
         self.applied_plan_id = None
         self.applied_plan_version = None
+        self.consumed_approvals: set[str] = set()
         self._load_cached_ssk_log()
         threading.Thread(target=self._autosave_loop, daemon=True).start()
         threading.Thread(target=self._ke_loop, daemon=True).start()
@@ -400,6 +401,7 @@ class EditorAPI:
         self.applied_plan_hash = None
         self.applied_plan_id = None
         self.applied_plan_version = None
+        self.consumed_approvals = set()
 
     def _load_cached_ssk_log(self):
         """Restore prior session thoughts from on-disk thought vault."""
@@ -2526,11 +2528,18 @@ class EditorAPI:
                     "timeline": self.timeline,
                 }
 
-            # 2. Approval content & identity validation
+            # 2. Check if approval has already been consumed and cannot be replayed
+            if hasattr(approval, "approval_id") and approval.approval_id in self.consumed_approvals:
+                raise ValueError(
+                    f"Approval token '{approval.approval_id}' has already been consumed and cannot be replayed. "
+                    "A fresh approval is required."
+                )
+
+            # 3. Approval content & identity validation
             if not approval.is_valid_for(plan):
                 raise ValueError("Approval does not match plan content hash or plan identity.")
 
-            # 3. Drift / staleness validation
+            # 4. Drift / staleness validation
             curr_media_hash = self.get_media_manifest_hash()
             curr_timeline_rev = self.get_timeline_revision()
             if approval.is_stale(curr_media_hash, curr_timeline_rev):
@@ -2540,15 +2549,26 @@ class EditorAPI:
                     f"timeline_drift={approval.timeline_revision != curr_timeline_rev})."
                 )
 
-            # 4. Plan validation against current media manifest
+            # 5. Plan validation against current media manifest
             valid, errors = self.validate_edit_plan(plan)
             if not valid:
                 raise ValueError(f"Plan validation failed before application: {'; '.join(errors)}")
 
-            # 5. In-memory timeline compilation
+            # 6. In-memory timeline compilation
             compiled_timeline, compiled_markers = edit_plan.compile_plan_to_timeline(plan, self.clips)
 
-            # 6. Atomic mutation with snapshot and rollback protection
+            # 7. Complete transactional checkpoint before any mutation
+            checkpoint = {
+                "capture": self._capture_state(),
+                "redo_stack": copy.deepcopy(self.redo_stack),
+                "undo_stack": copy.deepcopy(self.undo_stack),
+                "history": list(self.history),
+                "pending_plan_approval": self.pending_plan_approval,
+                "active_edit_plan": self.active_edit_plan,
+                "consumed_approvals": set(self.consumed_approvals),
+            }
+
+            # 8. Atomic mutation with snapshot and complete rollback protection
             self._snapshot(f"Apply Plan {plan.plan_id} v{plan.plan_version}")
             try:
                 if injected_failure_hook is not None:
@@ -2560,6 +2580,8 @@ class EditorAPI:
                 self.applied_plan_hash = plan.content_hash()
                 self.applied_plan_id = plan.plan_id
                 self.applied_plan_version = plan.plan_version
+                if hasattr(approval, "approval_id"):
+                    self.consumed_approvals.add(approval.approval_id)
                 self.pending_plan_approval = None
                 self.ai_status = f"Applied Plan {plan.plan_id} v{plan.plan_version}"
                 self.ui_dirty = True
@@ -2571,12 +2593,14 @@ class EditorAPI:
                     "timeline": self.timeline,
                 }
             except Exception as exc:
-                # Mid-application failure rollback: restore state and pop the undo entry
-                if self.undo_stack:
-                    saved_state = self.undo_stack.pop()
-                    self._restore_state(saved_state)
-                if self.history:
-                    self.history.pop(0)
+                # Complete transactional rollback: restore all editor state, redo stack, undo stack, history, and approvals
+                self._restore_state(checkpoint["capture"])
+                self.redo_stack = checkpoint["redo_stack"]
+                self.undo_stack = checkpoint["undo_stack"]
+                self.history = checkpoint["history"]
+                self.pending_plan_approval = checkpoint["pending_plan_approval"]
+                self.active_edit_plan = checkpoint["active_edit_plan"]
+                self.consumed_approvals = checkpoint["consumed_approvals"]
                 raise exc
 
 

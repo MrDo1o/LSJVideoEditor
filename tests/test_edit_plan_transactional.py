@@ -538,6 +538,190 @@ class TestEditPlanTransactional(unittest.TestCase):
         self.assertEqual(gui_ok["gui_status"], "committed")
         self.assertEqual(gui_ok["result"]["status"], "already_applied")
 
+    # -------------------------------------------------------------------------
+    # Confirmation Check 1: Approval rejection when plan content changes under same ID/version
+    # -------------------------------------------------------------------------
+    def test_check1_approval_rejected_when_content_changes_under_same_id_and_version(self):
+        plan_orig = self.api.create_edit_plan(
+            segments=make_valid_segments(),
+            plan_id="plan_fixed_id",
+            plan_version=1,
+        )
+        approval = self.api.approve_edit_plan(plan_orig, approver="auditor_bob")
+
+        # Approval is valid for original plan content
+        self.assertTrue(approval.is_valid_for(plan_orig))
+
+        # Tamper: create a plan with identical plan_id and plan_version, but altered segment timing
+        tampered_segments = list(make_valid_segments())
+        tampered_segments[0] = PlanSegment(
+            segment_id=tampered_segments[0].segment_id,
+            media_id=tampered_segments[0].media_id,
+            track=tampered_segments[0].track,
+            timeline_start=tampered_segments[0].timeline_start,
+            source_in=RationalTime(0, 30),  # Altered cut boundary!
+            source_out=RationalTime(90, 30),
+            filter_preset="TamperedFilter",
+        )
+        tampered_plan = EditPlan(
+            plan_id="plan_fixed_id",
+            plan_version=1,  # Same version!
+            media_manifest_hash=plan_orig.media_manifest_hash,
+            timeline_revision=plan_orig.timeline_revision,
+            segments=tuple(tampered_segments),
+            constraints=plan_orig.constraints,
+        )
+
+        # Content hash must differ despite matching ID and version
+        self.assertNotEqual(plan_orig.content_hash(), tampered_plan.content_hash())
+        self.assertFalse(approval.is_valid_for(tampered_plan))
+
+        # Application must be rejected without mutating timeline
+        with self.assertRaises(ValueError) as ctx:
+            self.api.apply_approved_plan(tampered_plan, approval)
+        self.assertIn("Approval does not match plan content hash", str(ctx.exception))
+        self.assertEqual(len(self.api.timeline), 0)
+
+    # -------------------------------------------------------------------------
+    # Confirmation Check 2: Rollback preserves redo stack, approvals, and full state
+    # -------------------------------------------------------------------------
+    def test_check2_rollback_preserves_redo_stack_and_all_state(self):
+        # 1. Establish pre-existing state with items in redo stack
+        self.api.add_to_timeline("clip_alpha", start=0.0, track=0)
+        self.api.undo()  # Timeline empty, redo stack contains 1 item
+        self.assertEqual(len(self.api.redo_stack), 1)
+        self.assertEqual(len(self.api.timeline), 0)
+
+        # 2. Stage selection and pending approval
+        self.api.selected_timeline_ids = ["clip_preserved_id"]
+        plan = self.api.create_edit_plan(segments=make_valid_segments())
+        approval = self.api.approve_edit_plan(plan)
+        self.assertIsNotNone(self.api.pending_plan_approval)
+
+        baseline_redo = copy.deepcopy(self.api.redo_stack)
+        baseline_pending = self.api.pending_plan_approval
+        baseline_history = list(self.api.history)
+
+        def injected_crash():
+            raise IOError("SIMULATED_STORAGE_FAILURE_DURING_COMMIT")
+
+        # 3. Apply with injected failure
+        with self.assertRaises(IOError):
+            self.api.apply_approved_plan(plan, approval, injected_failure_hook=injected_crash)
+
+        # 4. Verify redo stack and pending approval were completely preserved
+        self.assertEqual(self.api.redo_stack, baseline_redo, "Redo stack must be preserved on rollback")
+        self.assertEqual(self.api.pending_plan_approval, baseline_pending, "Pending approval must be preserved on rollback")
+        self.assertEqual(self.api.history, baseline_history)
+        self.assertEqual(self.api.selected_timeline_ids, ["clip_preserved_id"])
+        self.assertEqual(len(self.api.timeline), 0)
+
+    # -------------------------------------------------------------------------
+    # Confirmation Check 3: A -> B -> replayed-A rejected; explicit undo/reapproval behavior
+    # -------------------------------------------------------------------------
+    def test_check3_apply_A_then_B_then_replayed_A_rejected_and_explicit_undo_reapproval(self):
+        # Part A: Apply A, then Apply B
+        plan_a = self.api.create_edit_plan(segments=make_valid_segments()[:1], plan_id="plan_A")
+        approval_a = self.api.approve_edit_plan(plan_a)
+        res_a = self.api.apply_approved_plan(plan_a, approval_a)
+        self.assertEqual(res_a["status"], "applied")
+
+        plan_b = self.api.create_edit_plan(segments=make_valid_segments()[1:2], plan_id="plan_B")
+        approval_b = self.api.approve_edit_plan(plan_b)
+        res_b = self.api.apply_approved_plan(plan_b, approval_b)
+        self.assertEqual(res_b["status"], "applied")
+        self.assertEqual(self.api.applied_plan_id, "plan_B")
+
+        # Replaying old approval_A against plan_A must be rejected
+        with self.assertRaises(ValueError) as ctx:
+            self.api.apply_approved_plan(plan_a, approval_a)
+        self.assertTrue(
+            "already been consumed" in str(ctx.exception) or "Approval is stale" in str(ctx.exception)
+        )
+        self.assertEqual(self.api.applied_plan_id, "plan_B")
+
+        # Part B: Explicit undo followed by fresh approval
+        self.api = editor_mod.EditorAPI(project_name="UnitTest_UndoReapproval")
+        self.api.clips = [self.clip_a, self.clip_b]
+
+        plan = self.api.create_edit_plan(segments=make_valid_segments(), plan_id="plan_single")
+        approval_1 = self.api.approve_edit_plan(plan)
+        self.api.apply_approved_plan(plan, approval_1)
+        self.assertEqual(len(self.api.timeline), 3)
+
+        # Explicit undo reverts timeline
+        self.api.undo()
+        self.assertEqual(len(self.api.timeline), 0)
+
+        # Attempting to reapply using old consumed approval is rejected
+        with self.assertRaises(ValueError) as ctx:
+            self.api.apply_approved_plan(plan, approval_1)
+        self.assertIn("already been consumed", str(ctx.exception))
+
+        # Explicit fresh approval allows clean re-application
+        fresh_approval = self.api.approve_edit_plan(plan)
+        res_fresh = self.api.apply_approved_plan(plan, fresh_approval)
+        self.assertEqual(res_fresh["status"], "applied")
+        self.assertEqual(len(self.api.timeline), 3)
+
+    # -------------------------------------------------------------------------
+    # Confirmation Check 4: Rational timing at NTSC 30000/1001 fps & transition handles
+    # -------------------------------------------------------------------------
+    def test_check4_rational_timing_ntsc_29_97_fps_and_transition_handles(self):
+        fps_num = 30000
+        fps_den = 1001  # NTSC 29.97002997... fps
+
+        # Verify frame conversion precision with zero float rounding error
+        f0 = RationalTime.from_frame(0, fps_num, fps_den)
+        f90 = RationalTime.from_frame(90, fps_num, fps_den)
+        f150 = RationalTime.from_frame(150, fps_num, fps_den)
+
+        self.assertEqual(f0.numerator, 0)
+        self.assertEqual(f90.to_frame(fps_num, fps_den), 90)
+        self.assertEqual(f150.to_frame(fps_num, fps_den), 150)
+
+        # Create NTSC clips and segments using exact frame indices
+        ntsc_clip = make_fixture_clip("clip_ntsc", "NTSC_Bae.mp4", duration=100.1, fps=29.97)
+        self.api.clips = [ntsc_clip]
+
+        # Shot 1: Frames 0..90 (3.003s)
+        # Shot 2: Frames 90..150 (2.002s), with 15-frame (0.5005s) Dissolve
+        seg1 = PlanSegment(
+            segment_id="ntsc_shot_1",
+            media_id="clip_ntsc",
+            track=0,
+            timeline_start=f0,
+            source_in=RationalTime.from_frame(0, fps_num, fps_den),
+            source_out=RationalTime.from_frame(90, fps_num, fps_den),
+        )
+        seg2 = PlanSegment(
+            segment_id="ntsc_shot_2",
+            media_id="clip_ntsc",
+            track=0,
+            timeline_start=f90,  # Exactly abuts shot 1 at frame 90
+            source_in=RationalTime.from_frame(30, fps_num, fps_den),   # Has 30 frames head handle (> 15/2)
+            source_out=RationalTime.from_frame(90, fps_num, fps_den),  # 60 frames duration
+            transition_in="Dissolve",
+            transition_duration=RationalTime.from_frame(15, fps_num, fps_den),  # 15 frames dissolve
+        )
+
+        ntsc_plan = self.api.create_edit_plan(segments=[seg1, seg2], plan_id="ntsc_plan_v1")
+        valid, errors = self.api.validate_edit_plan(ntsc_plan)
+        self.assertTrue(valid, f"NTSC plan validation failed: {errors}")
+
+        ntsc_approval = self.api.approve_edit_plan(ntsc_plan)
+        apply_res = self.api.apply_approved_plan(ntsc_plan, ntsc_approval)
+        self.assertEqual(apply_res["status"], "applied")
+        self.assertEqual(len(self.api.timeline), 2)
+
+        # Verify exact timing: cut points land on rational frame boundaries, duration is preserved
+        c1 = self.api.timeline[0]
+        c2 = self.api.timeline[1]
+        self.assertAlmostEqual(c1["start"], 0.0, places=4)
+        self.assertAlmostEqual(c1["duration"], f90.seconds, places=4)
+        self.assertAlmostEqual(c2["start"], f90.seconds, places=4)
+        self.assertAlmostEqual(c2["duration"], (f150 - f90).seconds, places=4)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
